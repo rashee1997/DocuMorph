@@ -1,0 +1,18 @@
+# Rust & Cargo build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+samples/*.pdf
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+ehthumbs.db
+
+# Editor & IDE artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
