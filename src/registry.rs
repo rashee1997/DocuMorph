@@ -164,8 +164,8 @@ pub fn register_uninstaller(install_dir: &Path) -> Result<(), String> {
         }
 
         set_registry_string(hkey, Some("DisplayName"), "DocuMorph Document-to-PDF Engine")?;
-        set_registry_string(hkey, Some("DisplayVersion"), "1.1.0")?;
-        set_registry_string(hkey, Some("Publisher"), "Rasheed Hameed")?;
+        set_registry_string(hkey, Some("DisplayVersion"), "1.2.0")?;
+        set_registry_string(hkey, Some("Publisher"), "Rasheedh Ahamad")?;
         set_registry_string(hkey, Some("DisplayIcon"), &icon_path.to_string_lossy())?;
         set_registry_string(hkey, Some("UninstallString"), &format!("\"{}\"", uninst_path.to_string_lossy()))?;
         set_registry_string(hkey, Some("InstallLocation"), &install_dir.to_string_lossy())?;

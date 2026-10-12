@@ -1,8 +1,8 @@
 [package]
 name = "documorph"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
-authors = ["Rasheed Hameed <rasheedhmech03@gmail.com>"]
+authors = ["Rasheedh Ahamad <rasheedhmech03@gmail.com>"]
 description = "High-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding"
 license = "MIT"
 readme = "README.md"

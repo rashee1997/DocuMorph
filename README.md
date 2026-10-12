@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg)](https://microsoft.com/windows)
 [![Rust: 1.80+](https://img.shields.io/badge/Rust-1.80%2B-DEA584.svg)](https://www.rust-lang.org/)
-[![Version: 1.1.0](https://img.shields.io/badge/Version-1.1.0-brightgreen.svg)](CHANGELOG.md)
+[![Version: 1.2.0](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)](CHANGELOG.md)
 
 ---
 
@@ -60,7 +60,7 @@ Produces:
 ## Command Line Usage
 
 ```
-DocuMorph v1.1.0
+DocuMorph v1.2.0
 USAGE:
     documorph.exe [OPTIONS] [FILE_PATHS...]
 
@@ -79,4 +79,4 @@ OPTIONS:
 
 ## License
 
-MIT License. Copyright (c) 2026 Rasheed Hameed.
+MIT License. Copyright (c) 2026 Rasheedh Ahamad.

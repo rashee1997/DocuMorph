@@ -298,7 +298,7 @@ fn main() {
         let px = (sx - win_w) / 2;
         let py = (sy - win_h) / 2;
 
-        let title = com::to_wide("DocuMorph Setup (v1.1.0)");
+        let title = com::to_wide("DocuMorph Setup (v1.2.0)");
         let hwnd_main = CreateWindowExW(
             WS_EX_APPWINDOW | WS_EX_COMPOSITED,
             class_name.as_ptr(),
@@ -324,7 +324,7 @@ fn main() {
         ui::controls::create_label(hwnd_main, "DocuMorph Setup", 28, 18, 280, 26, fonts.title);
         ui::controls::create_label(
             hwnd_main,
-            "v1.1.0 • High-Fidelity Document to PDF Converter with TrueType Font Embedding",
+            "v1.2.0 • High-Fidelity Document to PDF Converter with TrueType Font Embedding",
             28, 48, 550, 20, fonts.small,
         );
 

@@ -1,56 +1,54 @@
-# Release Notes — DocuMorph v1.1.0
+# Release Notes — DocuMorph v1.2.0
 
-**DocuMorph** is a native, lightweight Windows context-menu utility written in Rust that converts Microsoft Word, PowerPoint, and Excel documents into pristine PDFs with 100% TrueType font embedding, conversion options, bulk queueing, and a standalone GUI installer/uninstaller.
+**DocuMorph** by **Rasheedh Ahamad** is a native, lightweight Windows context-menu utility written in Rust that converts Microsoft Word, PowerPoint, and Excel documents into pristine PDFs with 100% TrueType font embedding, conversion options, bulk queueing, WinUI 3 Fluent modern UI, and a standalone GUI installer/uninstaller.
 
 ---
 
-### Highlights of v1.1.0
+### Highlights of v1.2.0
 
-1. **Pre-Conversion Options & Bulk GUI Dialog**
-   Right-clicking a document or opening DocuMorph now presents a full graphical options dialog:
-   - **Queue Management**: Multi-file conversion queue with `[+ Add...]`, `[- Remove]`, and `[Clear]`.
-   - **Dynamic IPC Aggregation**: Selecting multiple files in Windows Explorer and clicking "Convert to PDF with DocuMorph" automatically merges all files into a single batch queue via Named Pipe IPC (`\\.\pipe\DocuMorph_Queue_Pipe`).
-   - **Dual Progress Views**: Progress displays both overall queue progress and per-file step progression.
+1. **WinUI 3 & Windows 11 Fluent Design System**
+   - **Windows 11 DWM Rounded Window Corners**: Applied via `DwmSetWindowAttribute` (`DWMWCP_ROUND`).
+   - **Hardware-Accelerated Double Buffering**: `WS_EX_COMPOSITED` on all windows completely eliminates Win32 redraw flicker.
+   - **Rounded Fluent Cards**: Clean `#FFFFFF` containers with 1px `#E2E8F0` border resting on a `#F8FAFC` soft slate canvas.
+   - **Custom Owner-Drawn Crimson Pill Buttons**: Brand crimson accent (`#BE123C`) buttons with active pressed and hover feedback.
+   - **Seamless Label Blending**: Transparent static text eliminates 90s grey boxes behind labels.
+   - **Zero-Cutoff Dynamic Sizing**: Sizing computed via `AdjustWindowRectEx` ensures no buttons or elements are clipped across display scaling modes (100%, 125%, 150%).
 
-2. **PDF Archival Standards (Standard vs PDF/A-1a)**
-   - **Standard PDF**: Optimized for screen reading, sharing, and standard printing.
-   - **PDF/A-1a Archival**: Adheres to `ISO 19005-1` for strict long-term document preservation and compliance archiving.
+2. **Office COM Pipeline Refactoring & Font/Layout Preservation**
+   - **Word Layout & Font Fidelity**:
+     - Pre-configures `ActivePrinter` to `"Microsoft Print to PDF"`, avoiding slow network printer timeouts.
+     - Sets `UpdateStylesOnOpen = false` to preserve document templates without distortion.
+     - Forces `View.Type = wdPrintView` (3) for exact print-layout pagination.
+     - Disables `BitmapMissingFonts` (`false`) to ensure TrueType vector fonts remain crisp vectors.
+   - **Excel Sheet Pagination & Table Boundaries**:
+     - Sets `PageSetup` (`Zoom = false`, `FitToPagesWide = 1`, `FitToPagesTall = false`) to keep wide tables on a single page width without splitting columns.
+     - Silences link alerts and manual calculation mode to prevent hangs on workbook open.
+   - **PowerPoint Native Fixed Format Export**:
+     - Upgraded to native `ExportAsFixedFormat` with all 15 parameters, preserving layout and font fidelity.
+     - Silenced alert dialogs (`DisplayAlerts = ppAlertsNone`).
 
-3. **Destination Directory Routing**
-   - Output directly to the source document's directory.
-   - Or route to any custom folder with native Win32 directory browsing (`SHBrowseForFolderW`).
+3. **UI Responsiveness & Anti-Hang Optimization**
+   - Instant real-time 60 FPS status updates via explicit `InvalidateRect`.
+   - Cancel / Close button remains active throughout conversions.
+   - Office engines terminate with `wdDoNotSaveChanges = 0`, eliminating prompts to save `Normal.dotm`.
 
-4. **Bulk Renaming Engine with Live Preview**
-   - Flexible template syntax supporting `{name}`, `{date}`, and `{num}` tokens.
-   - Customizable prefixes and suffixes.
-   - Safe collision avoidance: automatically creates `Document (1).pdf` instead of overwriting existing files.
-   - Live preview updating in real-time as you type.
+4. **Pre-Conversion Options & Bulk GUI Dialog**
+   - Multi-file conversion queue with `[+ Add...]`, `[- Remove]`, and `[Clear]`.
+   - Dynamic IPC Aggregation: Multiple files selected simultaneously in File Explorer automatically merge into one unified conversion batch.
+   - Choice between **Standard PDF** and **PDF/A-1a Archival** (`ISO 19005-1`).
+   - Destination directory routing and bulk renaming template engine with live preview.
 
-5. **Automated GUI Setup Wizard (`DocuMorph-Setup.exe`)**
+5. **Automated GUI Setup Wizard (`DocuMorph-Setup.exe`) & Clean Uninstaller**
    - Self-contained ~1 MB installer embedding `documorph.exe`, `uninstall.exe`, and `icon.ico`.
-   - Interactive directory selection (defaults to `C:\DocuMorph` or custom user location).
-   - Automatically registers HKCU context menu verbs for `.docx`, `.doc`, `.pptx`, `.ppt`, `.xlsx`, and `.xls`.
-   - Native integration with Windows Settings "Installed Apps" / "Add or Remove Programs".
-   - Supports automated deployment via `DocuMorph-Setup.exe --silent [TARGET_DIR]`.
-
-6. **Clean Standalone Uninstaller (`uninstall.exe`)**
-   - Interactive confirmation dialog or silent removal (`--silent`).
-   - Cleanly deletes context menu registry keys and Windows uninstaller registry keys.
-   - Automatically cleans files and removes the installation folder.
-
-7. **Reliable Explorer Icon Visibility**
-   - Context menu registry icon paths are unquoted, resolving Windows Explorer `.ico` rendering.
-   - Window titlebar, taskbar, and Alt+Tab icons are dynamically loaded and assigned via Win32 `WM_SETICON`.
-
-8. **100% Font Embedding Fidelity**
-   - TrueType/OpenType document fonts are embedded directly via Microsoft Office 16 COM automation (`EmbedTrueTypeFonts = true`, `BitmapMissingFonts = true`), eliminating font substitution.
+   - Interactive directory selection and full registration in Windows Settings "Installed Apps".
+   - Clean uninstaller (`uninstall.exe`) with autonomous self-deletion.
 
 ---
 
 ### Installation & Usage
 
 #### Quick Setup:
-Double-click `DocuMorph-Setup.exe` and click **Install**.
+Double-click `DocuMorph-Setup.exe` and click **Install Now**.
 
 #### Command Line / Silent Install:
 ```powershell

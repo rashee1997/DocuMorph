@@ -323,7 +323,7 @@ pub fn show_main_dialog(initial_files: Vec<PathBuf>) -> Result<(), String> {
         let px = (sx - win_w) / 2;
         let py = (sy - win_h) / 2;
 
-        let title = to_wide("DocuMorph — Document to PDF Converter (v1.1.0)");
+        let title = to_wide("DocuMorph — Document to PDF Converter (v1.2.0)");
         let hwnd_main = CreateWindowExW(
             ex_style,
             class_name.as_ptr(),

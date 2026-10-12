@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-12
+
+### Added
+- **WinUI 3 & Windows 11 Fluent Design System**:
+  - Windows 11 DWM rounded window corners (`DWMWCP_ROUND`) applied to top-level dialogs.
+  - Hardware-accelerated double buffering (`WS_EX_COMPOSITED`) eliminating Win32 redraw flicker.
+  - Rounded Fluent Cards (`RoundRect` with 1px `#E2E8F0` border on `#F8FAFC` canvas).
+  - Custom owner-drawn Crimson pill action buttons (`BS_OWNERDRAW`) with hover and pressed visual feedback.
+  - Transparent static label backgrounds matching card and canvas brushes without grey bounding rectangles.
+  - Dynamic `AdjustWindowRectEx` window sizing calculation, guaranteeing zero button clipping or cutoff at any DPI scale.
+
+### Changed & Fixed
+- **Office COM Pipeline Refactoring & Layout Preservation**:
+  - **Microsoft Word**: Set `ActivePrinter` to `"Microsoft Print to PDF"` upfront, bypassing offline/network printer timeouts; disabled `UpdateStylesOnOpen` to stop template style distortion; set `View.Type = wdPrintView` (3) for exact pagination; set `BitmapMissingFonts = false` to preserve scalable vector TrueType fonts.
+  - **Microsoft Excel**: Configured `PageSetup` (`Zoom = false`, `FitToPagesWide = 1`, `FitToPagesTall = false`) to prevent wide tables from being split across columns; disabled `AskToUpdateLinks`, `EnableEvents`, `DisplayAlerts`, and formula recalculation on open for instant load.
+  - **Microsoft PowerPoint**: Migrated to native `ExportAsFixedFormat` with all 15 parameters including `BitmapMissingFonts = false` and `UseISO19005_1`; silenced alerts with `DisplayAlerts = ppAlertsNone` (1).
+- **UI Responsiveness & Anti-Hang Optimization**:
+  - Added explicit `InvalidateRect` on status labels upon receiving progress events, ensuring real-time 60 FPS progress updates under `WS_EX_COMPOSITED`.
+  - Maintained active Cancel / Close button during conversions so the UI never feels locked.
+  - Ensured Office application processes terminate with `wdDoNotSaveChanges`, preventing background prompts to save `Normal.dotm`.
+- **Authorship**:
+  - Updated author and publisher metadata to **Rasheedh Ahamad**.
+
 ## [1.1.0] - 2026-10-12
 
 ### Added
