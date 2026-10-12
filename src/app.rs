@@ -106,10 +106,10 @@ pub fn process_conversion(
                 WordConverter::convert(&input_path, &temp_output, config.format, progress_cb)?;
             }
             DocumentKind::PowerPoint => {
-                PowerPointConverter::convert(&input_path, &temp_output, progress_cb)?;
+                PowerPointConverter::convert(&input_path, &temp_output, config.format, progress_cb)?;
             }
             DocumentKind::Excel => {
-                ExcelConverter::convert(&input_path, &temp_output, progress_cb)?;
+                ExcelConverter::convert(&input_path, &temp_output, config.format, progress_cb)?;
             }
         }
 

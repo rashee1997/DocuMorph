@@ -1,5 +1,6 @@
 use std::path::Path;
-use super::{ComDispatch, IDispatch, ManagedBstr, ManagedVariant};
+use super::{ComDispatch, ManagedBstr, ManagedVariant};
+use crate::options::PdfStandard;
 
 pub struct ExcelConverter;
 
@@ -7,6 +8,7 @@ impl ExcelConverter {
     pub fn convert<F>(
         input_path: &Path,
         output_path: &Path,
+        _pdf_standard: PdfStandard,
         mut progress: F,
     ) -> Result<(), String>
     where
@@ -17,23 +19,24 @@ impl ExcelConverter {
         let app = ComDispatch::create_instance("Excel.Application")
             .map_err(|e| format!("Could not initialize Excel: {}", e))?;
 
-        // Disable macros unconditionally (msoAutomationSecurityForceDisable = 3)
-        let _ = app.set_property("AutomationSecurity", ManagedVariant::from_i4(3));
+        // Disable macros, alerts, and background events to ensure fast, non-blocking execution
+        let _ = app.set_property("AutomationSecurity", ManagedVariant::from_i4(3)); // msoAutomationSecurityForceDisable = 3
         let _ = app.set_property("Visible", ManagedVariant::from_bool(false));
         let _ = app.set_property("DisplayAlerts", ManagedVariant::from_bool(false));
         let _ = app.set_property("ScreenUpdating", ManagedVariant::from_bool(false));
+        let _ = app.set_property("AskToUpdateLinks", ManagedVariant::from_bool(false));
+        let _ = app.set_property("EnableEvents", ManagedVariant::from_bool(false));
+        let _ = app.set_property("Calculation", ManagedVariant::from_i4(-4135)); // xlCalculationManual = -4135
 
         progress(30, "Accessing workbooks collection...");
 
-        let wb_collection_var = app.get_property("Workbooks")?;
-        let wb_collection_ptr = unsafe {
-            wb_collection_var.0.Anonymous.Anonymous.Anonymous.pdispVal as *mut IDispatch
+        let workbooks = match app.get_dispatch_property("Workbooks") {
+            Ok(wb) => wb,
+            Err(e) => {
+                let _ = app.invoke_method("Quit", &mut []);
+                return Err(format!("Failed to retrieve Excel Workbooks collection: {}", e));
+            }
         };
-        if wb_collection_ptr.is_null() {
-            let _ = app.invoke_method("Quit", &mut []);
-            return Err("Failed to retrieve Excel Workbooks collection".to_string());
-        }
-        let workbooks = ComDispatch::from_raw(wb_collection_ptr);
 
         let input_str = input_path
             .to_str()
@@ -62,17 +65,27 @@ impl ExcelConverter {
             }
         };
 
-        let wb_ptr = unsafe { wb_var.0.Anonymous.Anonymous.Anonymous.pdispVal as *mut IDispatch };
-        if wb_ptr.is_null() {
-            let _ = app.invoke_method("Quit", &mut []);
-            return Err("Failed to obtain Workbook object".to_string());
+        let workbook = match wb_var.to_dispatch() {
+            Ok(wb) => wb,
+            Err(e) => {
+                let _ = app.invoke_method("Quit", &mut []);
+                return Err(format!("Failed to obtain Workbook dispatch object: {}", e));
+            }
+        };
+
+        // Query ActiveSheet and configure PageSetup to prevent horizontal splitting across pages
+        if let Ok(sheet) = workbook.get_dispatch_property("ActiveSheet") {
+            if let Ok(page_setup) = sheet.get_dispatch_property("PageSetup") {
+                let _ = page_setup.set_property("Zoom", ManagedVariant::from_bool(false));
+                let _ = page_setup.set_property("FitToPagesWide", ManagedVariant::from_i4(1));
+                let _ = page_setup.set_property("FitToPagesTall", ManagedVariant::from_bool(false));
+            }
         }
-        let workbook = ComDispatch::from_raw(wb_ptr);
 
         progress(70, "Exporting spreadsheet to PDF copy...");
 
         // Workbook.ExportAsFixedFormat(
-        //   Type = xlTypePDF (0), Filename, Quality = 0,
+        //   Type = xlTypePDF (0), Filename, Quality = xlQualityStandard (0),
         //   IncludeDocProperties = true, IgnorePrintAreas = false
         // )
         let mut export_args = [
@@ -87,7 +100,7 @@ impl ExcelConverter {
 
         progress(90, "Finalizing spreadsheet export...");
 
-        // Close workbook: SaveChanges = false
+        // Close workbook without saving changes
         let mut close_args = [ManagedVariant::from_bool(false)];
         let _ = workbook.invoke_method("Close", &mut close_args);
         let _ = app.invoke_method("Quit", &mut []);

@@ -65,15 +65,16 @@ pub fn start_conversion_flow(hwnd: HWND) {
                 OutputDestination::SourceDirectory => files.first().and_then(|f| f.parent()).map(|p| p.to_path_buf()),
             };
 
-            // Disable options and show progress controls
+            // Disable start button, show progress controls, keep cancel enabled
             unsafe {
                 EnableWindow(state.hwnd_btn_start, 0);
-                EnableWindow(state.hwnd_btn_cancel, 0);
                 ShowWindow(state.hwnd_btn_start, SW_HIDE);
                 ShowWindow(state.hwnd_progress_overall, SW_SHOW);
                 ShowWindow(state.hwnd_progress_current, SW_SHOW);
                 ShowWindow(state.hwnd_lbl_status_main, SW_SHOW);
                 ShowWindow(state.hwnd_lbl_status_sub, SW_SHOW);
+                windows_sys::Win32::Graphics::Gdi::InvalidateRect(state.hwnd_main, std::ptr::null(), 1);
+                windows_sys::Win32::Graphics::Gdi::UpdateWindow(state.hwnd_main);
             }
         }
     }

@@ -6,7 +6,7 @@ use std::thread;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
-    BeginPaint, DeleteObject, EndPaint, FillRect, ScreenToClient, SetBkMode,
+    BeginPaint, DeleteObject, EndPaint, FillRect, InvalidateRect, ScreenToClient, SetBkMode,
     SetTextColor, UpdateWindow, HDC, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -195,6 +195,7 @@ unsafe extern "system" fn window_proc(
                         let overall_pct = ((idx as f32 / total as f32) * 100.0) as usize;
                         SendMessageW(state.hwnd_progress_overall, PBM_SETPOS, overall_pct, 0);
                         SendMessageW(state.hwnd_progress_current, PBM_SETPOS, 0, 0);
+                        InvalidateRect(state.hwnd_lbl_status_main, ptr::null(), 1);
                     }
                 }
             }
@@ -209,6 +210,7 @@ unsafe extern "system" fn window_proc(
                     if let Some(state) = guard.as_ref() {
                         SendMessageW(state.hwnd_progress_current, PBM_SETPOS, pct, 0);
                         SetWindowTextW(state.hwnd_lbl_status_sub, to_wide(&text).as_ptr());
+                        InvalidateRect(state.hwnd_lbl_status_sub, ptr::null(), 1);
                     }
                 }
             }
