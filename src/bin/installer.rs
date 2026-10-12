@@ -30,6 +30,8 @@ use documorph::ui::fluent::{
     COLOR_TEXT_MAIN_RGB,
 };
 use documorph::{com, registry, ui};
+use documorph::ui::anim::{start_anim, set_target_percent, ID_TIMER_PROGRESS, PBM_SETPOS};
+use windows_sys::Win32::UI::WindowsAndMessaging::{KillTimer, SendMessageW, SW_HIDE};
 
 const DOCUMORPH_EXE_BYTES: &[u8] = include_bytes!("../../target/release/documorph.exe");
 const UNINSTALLER_EXE_BYTES: &[u8] = include_bytes!("../../target/release/uninstaller.exe");
@@ -40,12 +42,15 @@ const ID_BTN_BROWSE: usize = 202;
 const ID_BTN_INSTALL: usize = 203;
 const ID_BTN_CANCEL: usize = 204;
 
+const ID_PROGRESS_INSTALL: usize = 301;
+
 struct InstallerState {
     hwnd_edit_dir: HWND,
     hwnd_lbl_status: HWND,
     hwnd_btn_install: HWND,
     #[allow(dead_code)]
     hwnd_btn_cancel: HWND,
+    hwnd_progress: HWND,
     fonts: ui::controls::ControlFonts,
     theme: FluentTheme,
     installed: bool,
@@ -148,6 +153,21 @@ unsafe extern "system" fn installer_wndproc(
             1
         }
         WM_APP_INSTALL_RESULT => {
+            // Stop the installation animation
+            if let Ok(guard) = INSTALLER_STATE.lock() {
+                if let Some(state) = guard.as_ref() {
+                    unsafe {
+                        KillTimer(hwnd, ID_TIMER_PROGRESS);
+                        SendMessageW(state.hwnd_progress, PBM_SETPOS, 100, 0);
+                    }
+                    if let Ok(mut anim) = documorph::ui::anim::ANIMATOR.lock() {
+                        anim.is_active = false;
+                        anim.displayed_current = 100;
+                    }
+                    ShowWindow(state.hwnd_progress, SW_HIDE);
+                }
+            }
+
             let success = wparam == 1;
             if success {
                 let target_str = if let Ok(mut guard) = INSTALLER_STATE.lock() {
@@ -192,6 +212,30 @@ unsafe extern "system" fn installer_wndproc(
             }
             0
         }
+        wm_timer if (wm_timer as usize) == ID_TIMER_PROGRESS => {
+            if let Ok(guard) = INSTALLER_STATE.lock() {
+                if let Some(state) = guard.as_ref() {
+                    // Single progress bar animation - just step towards target
+                    let mut updated = false;
+                    let mut pos = 0usize;
+                    if let Ok(mut anim) = documorph::ui::anim::ANIMATOR.lock() {
+                        if anim.is_active && anim.displayed_current < anim.target_current {
+                            let diff = anim.target_current - anim.displayed_current;
+                            let step = if diff > 20 { 3 } else if diff > 5 { 2 } else { 1 };
+                            anim.displayed_current += step;
+                            pos = anim.displayed_current;
+                            updated = true;
+                        }
+                    }
+                    if updated {
+                        unsafe {
+                            SendMessageW(state.hwnd_progress, PBM_SETPOS, pos as usize, 0);
+                        }
+                    }
+                }
+            }
+            0
+        }
         WM_COMMAND => {
             let id = (wparam & 0xFFFF) as usize;
             match id {
@@ -233,6 +277,10 @@ unsafe extern "system" fn installer_wndproc(
                         if let Some(state) = guard.as_ref() {
                             EnableWindow(state.hwnd_btn_install, 0);
                             SetWindowTextW(state.hwnd_lbl_status, com::to_wide("Installing DocuMorph...").as_ptr());
+                            // Show progress bar and start animation
+                            ShowWindow(state.hwnd_progress, SW_SHOW);
+                            set_target_percent(100);
+                            start_anim(hwnd);
                         }
                     }
 
@@ -354,8 +402,10 @@ fn main() {
         ui::controls::create_label(hwnd_main, desc, 40, 218, 520, 115, fonts.normal);
 
         let hwnd_lbl_status = ui::controls::create_label(hwnd_main, "Ready to install.", 28, 402, 310, 22, fonts.normal);
-        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install", ID_BTN_INSTALL, 350, 394, 125, 36, fonts.bold);
-        let hwnd_btn_cancel = ui::controls::create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 394, 95, 36, fonts.normal);
+        let hwnd_progress = ui::controls::create_progress_bar(hwnd_main, ID_PROGRESS_INSTALL, 28, 432, 560, 12);
+        ShowWindow(hwnd_progress, SW_HIDE);
+        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install", ID_BTN_INSTALL, 350, 452, 125, 36, fonts.bold);
+        let hwnd_btn_cancel = ui::controls::create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 452, 95, 36, fonts.normal);
 
         if let Ok(mut guard) = INSTALLER_STATE.lock() {
             *guard = Some(InstallerState {
@@ -363,6 +413,7 @@ fn main() {
                 hwnd_lbl_status,
                 hwnd_btn_install,
                 hwnd_btn_cancel,
+                hwnd_progress,
                 fonts,
                 theme,
                 installed: false,
