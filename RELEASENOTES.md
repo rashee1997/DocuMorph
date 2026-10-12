@@ -52,7 +52,7 @@ Double-click `DocuMorph-Setup.exe` and click **Install Now**.
 
 #### Command Line / Silent Install:
 ```powershell
-.\DocuMorph-Setup.exe --silent "C:\DocuMorph"
+.\DocuMorph-Setup.exe --silent "C:\Program Files\DocuMorph"
 ```
 
 #### Converting Documents:

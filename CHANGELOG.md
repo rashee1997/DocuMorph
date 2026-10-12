@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2026-10-12
 
 ### Added
+- **Unique Brand Identity & Multi-Resolution Windows Icons**:
+  - Designed custom modern "Morphic Prism D" brand logo via logo design system, replacing generic PDF sheet clichés.
+  - Multi-resolution Windows application icon (`resources/icon.ico`: 16, 24, 32, 48, 64, 128, 256 px).
+  - Embedded Windows PE icon resources linked directly into `documorph.exe`, `installer.exe`, and `uninstaller.exe`.
+  - Default installation target updated to standard `C:\Program Files\DocuMorph` with elevated permission handling.
 - **WinUI 3 & Windows 11 Fluent Design System**:
   - Windows 11 DWM rounded window corners (`DWMWCP_ROUND`) applied to top-level dialogs.
   - Hardware-accelerated double buffering (`WS_EX_COMPOSITED`) eliminating Win32 redraw flicker.

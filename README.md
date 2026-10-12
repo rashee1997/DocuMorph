@@ -1,12 +1,20 @@
-# DocuMorph
+<div align="center">
 
-> **Lightning-fast, high-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding, WinUI 3 Fluent modern UI, bulk queueing, and an automated standalone installer.**
+  <img src="resources/logo.png" alt="DocuMorph Logo" width="128" height="128" />
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg)](https://microsoft.com/windows)
-[![Rust: 1.80+](https://img.shields.io/badge/Rust-1.80%2B-DEA584.svg)](https://www.rust-lang.org/)
-[![Version: 1.2.0](https://img.shields.io/badge/Version-1.2.0-brightgreen.svg)](CHANGELOG.md)
-[![CI/CD: Release](https://github.com/rashee1997/DocuMorph/actions/workflows/release.yml/badge.svg)](https://github.com/rashee1997/DocuMorph/actions)
+  # DocuMorph
+
+  **Lightning-fast, high-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding, WinUI 3 Fluent modern UI, bulk queueing, and an automated standalone installer.**
+
+  <br />
+
+  [![DocuMorph: v1.2.0](https://img.shields.io/badge/DocuMorph-v1.2.0-C42B1C?style=for-the-badge&logo=windows&logoColor=white)](CHANGELOG.md)
+  [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](https://microsoft.com/windows)
+  [![Rust: 1.80+](https://img.shields.io/badge/Rust-1.80%2B-DEA584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-3DA639?style=for-the-badge)](LICENSE)
+  [![CI/CD: GitHub Actions](https://img.shields.io/badge/CI%2FCD-Passing-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/rashee1997/DocuMorph/actions)
+
+</div>
 
 ---
 
@@ -50,9 +58,9 @@ Unlike virtual PDF printer drivers or third-party format converters that degrade
 Download the latest `DocuMorph-Setup.exe` from the [GitHub Releases Tab](https://github.com/rashee1997/DocuMorph/releases) and double-click to install.
 
 ### Method 2: Silent / Automated CLI Install
-Deploy silently to `C:\DocuMorph` (or any custom location) using PowerShell:
+Deploy silently to `C:\Program Files\DocuMorph` (or any custom location) using PowerShell:
 ```powershell
-.\DocuMorph-Setup.exe --silent "C:\DocuMorph"
+.\DocuMorph-Setup.exe --silent "C:\Program Files\DocuMorph"
 ```
 
 ---

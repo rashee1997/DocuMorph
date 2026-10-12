@@ -69,7 +69,13 @@ fn get_edit_text(hwnd: HWND) -> String {
 
 pub fn perform_install(target_dir: &Path) -> Result<(), String> {
     if !target_dir.exists() {
-        fs::create_dir_all(target_dir).map_err(|e| format!("Could not create dir: {}", e))?;
+        fs::create_dir_all(target_dir).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::PermissionDenied {
+                "Access denied. Run installer as Administrator to install to Program Files, or select another folder.".to_string()
+            } else {
+                format!("Could not create dir: {}", e)
+            }
+        })?;
     }
     fs::write(target_dir.join("documorph.exe"), DOCUMORPH_EXE_BYTES).map_err(|e| format!("Write failed: {}", e))?;
     fs::write(target_dir.join("uninstall.exe"), UNINSTALLER_EXE_BYTES).map_err(|e| format!("Write failed: {}", e))?;
@@ -261,7 +267,9 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let is_silent = args.iter().any(|a| a == "--silent" || a == "-s" || a == "/S");
 
-    let default_dest = PathBuf::from(r"C:\DocuMorph");
+    let default_dest = env::var("ProgramFiles")
+        .map(|p| PathBuf::from(p).join("DocuMorph"))
+        .unwrap_or_else(|_| PathBuf::from(r"C:\Program Files\DocuMorph"));
 
     if is_silent {
         let custom_dir = args.iter().skip(1).find(|a| !a.starts_with("-")).map(PathBuf::from);

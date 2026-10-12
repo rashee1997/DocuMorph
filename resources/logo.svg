@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title-symbol">
+  <title id="title-symbol">DocuMorph Brand Symbol</title>
+  <defs>
+    <linearGradient id="sym-spine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF3823"/>
+      <stop offset="50%" stop-color="#D32F2F"/>
+      <stop offset="100%" stop-color="#8E0000"/>
+    </linearGradient>
+    <linearGradient id="sym-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4D3D"/>
+      <stop offset="100%" stop-color="#C42B1C"/>
+    </linearGradient>
+    <linearGradient id="sym-bot" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#A80000"/>
+      <stop offset="100%" stop-color="#E53935"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left Foundation Spine (Original Document Structure) -->
+  <rect x="36" y="34" width="48" height="188" rx="16" fill="url(#sym-spine)"/>
+
+  <!-- Upper Morphing Wing (Flowing Transformation Facet) -->
+  <path d="M 98 34 L 148 34 C 193.28 34 230 70.72 230 116 C 230 128.2 227.3 139.8 222.3 150.2 L 152 106 L 98 106 Z" fill="url(#sym-top)"/>
+
+  <!-- Lower Fixed Vector Facet (The Immutable Archival Target) -->
+  <path d="M 98 150 L 152 150 L 222.3 107.8 C 227.3 118.2 230 129.8 230 142 C 230 187.28 193.28 224 148 224 L 98 224 Z" fill="url(#sym-bot)"/>
+
+  <!-- Central Dynamic Vector Beam / Diamond Aperture -->
+  <polygon points="176,114 198,128 176,142 154,128" fill="#FFFFFF"/>
+</svg>
