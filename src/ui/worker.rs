@@ -79,6 +79,8 @@ pub fn start_conversion_flow(hwnd: HWND) {
         }
     }
 
+    crate::ui::anim::start_anim(hwnd);
+
     let total = files.len();
     let hwnd_target = hwnd as isize;
 

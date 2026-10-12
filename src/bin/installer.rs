@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::Mutex;
+use std::thread;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
@@ -13,14 +14,15 @@ use windows_sys::Win32::Graphics::Gdi::{
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::DRAWITEMSTRUCT;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetClientRect,
     GetMessageW, GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
-    LoadIconW, MessageBoxW, PostQuitMessage, RegisterClassExW, SetWindowTextW, ShowWindow,
-    TranslateMessage, CS_HREDRAW, CS_VREDRAW, IDI_APPLICATION, MB_ICONERROR,
-    MB_ICONINFORMATION, MB_OK, SM_CXSCREEN, SM_CYSCREEN, SW_SHOW, WM_CLOSE, WM_COMMAND,
-    WM_CTLCOLORSTATIC, WM_DESTROY, WM_DRAWITEM, WM_ERASEBKGND, WM_PAINT, WNDCLASSEXW,
-    WS_CAPTION, WS_EX_APPWINDOW, WS_EX_COMPOSITED, WS_OVERLAPPED, WS_SYSMENU,
+    LoadIconW, MessageBoxW, PostMessageW, PostQuitMessage, RegisterClassExW, SetWindowTextW,
+    ShowWindow, TranslateMessage, CS_HREDRAW, CS_VREDRAW, IDI_APPLICATION, MB_ICONERROR,
+    MB_ICONINFORMATION, MB_OK, SM_CXSCREEN, SM_CYSCREEN, SW_SHOW, WM_APP, WM_CLOSE,
+    WM_COMMAND, WM_CTLCOLORSTATIC, WM_DESTROY, WM_DRAWITEM, WM_ERASEBKGND, WM_PAINT,
+    WNDCLASSEXW, WS_CAPTION, WS_EX_APPWINDOW, WS_EX_COMPOSITED, WS_OVERLAPPED, WS_SYSMENU,
 };
 
 use documorph::ui::fluent::{
@@ -51,10 +53,11 @@ struct InstallerState {
 
 unsafe impl Send for InstallerState {}
 static INSTALLER_STATE: Mutex<Option<InstallerState>> = Mutex::new(None);
+const WM_APP_INSTALL_RESULT: u32 = WM_APP + 10;
 
-fn show_alert(title: &str, text: &str, is_error: bool) {
+fn show_alert(hwnd: HWND, title: &str, text: &str, is_error: bool) {
     let flags = MB_OK | if is_error { MB_ICONERROR } else { MB_ICONINFORMATION };
-    unsafe { MessageBoxW(ptr::null_mut(), com::to_wide(text).as_ptr(), com::to_wide(title).as_ptr(), flags); }
+    unsafe { MessageBoxW(hwnd, com::to_wide(text).as_ptr(), com::to_wide(title).as_ptr(), flags); }
 }
 
 fn get_edit_text(hwnd: HWND) -> String {
@@ -108,13 +111,8 @@ unsafe extern "system" fn installer_wndproc(
             let hdc = BeginPaint(hwnd, &mut ps);
             if let Ok(guard) = INSTALLER_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
-                    // Card 1: Destination Card
-                    let rc_card1 = RECT { left: 24, top: 78, right: 580, bottom: 165 };
-                    draw_card(hdc, &rc_card1, &state.theme);
-
-                    // Card 2: Feature Integration Card
-                    let rc_card2 = RECT { left: 24, top: 178, right: 580, bottom: 350 };
-                    draw_card(hdc, &rc_card2, &state.theme);
+                    draw_card(hdc, &RECT { left: 24, top: 78, right: 580, bottom: 165 }, &state.theme);
+                    draw_card(hdc, &RECT { left: 24, top: 178, right: 580, bottom: 350 }, &state.theme);
                 }
             }
             EndPaint(hwnd, &ps);
@@ -123,25 +121,14 @@ unsafe extern "system" fn installer_wndproc(
         WM_CTLCOLORSTATIC => {
             let hdc = wparam as HDC;
             SetBkMode(hdc, TRANSPARENT as i32);
-            SetTextColor(
-                hdc,
-                rgb(
-                    COLOR_TEXT_MAIN_RGB.0,
-                    COLOR_TEXT_MAIN_RGB.1,
-                    COLOR_TEXT_MAIN_RGB.2,
-                ),
-            );
+            SetTextColor(hdc, rgb(COLOR_TEXT_MAIN_RGB.0, COLOR_TEXT_MAIN_RGB.1, COLOR_TEXT_MAIN_RGB.2));
             if let Ok(guard) = INSTALLER_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
                     let mut rect: RECT = std::mem::zeroed();
                     GetWindowRect(lparam as HWND, &mut rect);
                     let mut pt = POINT { x: rect.left, y: rect.top };
                     ScreenToClient(hwnd, &mut pt);
-                    return if pt.y >= 70 && pt.y <= 360 {
-                        state.theme.card_brush as isize
-                    } else {
-                        state.theme.canvas_brush as isize
-                    };
+                    return if pt.y >= 70 && pt.y <= 360 { state.theme.card_brush as isize } else { state.theme.canvas_brush as isize };
                 }
             }
             0
@@ -151,21 +138,59 @@ unsafe extern "system" fn installer_wndproc(
             if let Ok(guard) = INSTALLER_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
                     match dis.CtlID as usize {
-                        ID_BTN_INSTALL => {
-                            let text = if state.installed { "Finish" } else { "Install Now" };
-                            draw_fluent_button(dis, &state.theme, text, true);
-                        }
-                        ID_BTN_CANCEL => {
-                            draw_fluent_button(dis, &state.theme, "Cancel", false);
-                        }
-                        ID_BTN_BROWSE => {
-                            draw_fluent_button(dis, &state.theme, "Browse...", false);
-                        }
+                        ID_BTN_INSTALL => draw_fluent_button(dis, &state.theme, if state.installed { "Finish" } else { "Install Now" }, true),
+                        ID_BTN_CANCEL => draw_fluent_button(dis, &state.theme, "Cancel", false),
+                        ID_BTN_BROWSE => draw_fluent_button(dis, &state.theme, "Browse...", false),
                         _ => {}
                     }
                 }
             }
             1
+        }
+        WM_APP_INSTALL_RESULT => {
+            let success = wparam == 1;
+            if success {
+                let target_str = if let Ok(mut guard) = INSTALLER_STATE.lock() {
+                    if let Some(state) = guard.as_mut() {
+                        state.installed = true;
+                        let dir = get_edit_text(state.hwnd_edit_dir);
+                        let success_text = format!("✓ Installed to {}! Explorer context menu is ready.", dir);
+                        SetWindowTextW(state.hwnd_lbl_status, com::to_wide(&success_text).as_ptr());
+                        EnableWindow(state.hwnd_btn_install, 1);
+                        InvalidateRect(state.hwnd_btn_install, ptr::null(), 1);
+                        dir
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    String::new()
+                };
+                show_alert(
+                    hwnd,
+                    "DocuMorph Setup",
+                    &format!(
+                        "Installation Successful!\n\nDocuMorph has been installed to:\n{}\n\nRight-click any Word, PowerPoint, or Excel document in File Explorer to convert to PDF with 100% font fidelity.",
+                        target_str
+                    ),
+                    false,
+                );
+            } else {
+                let err_ptr = lparam as *mut String;
+                let err_msg = if !err_ptr.is_null() {
+                    *unsafe { Box::from_raw(err_ptr) }
+                } else {
+                    "Installation failed.".to_string()
+                };
+                if let Ok(guard) = INSTALLER_STATE.lock() {
+                    if let Some(state) = guard.as_ref() {
+                        SetWindowTextW(state.hwnd_lbl_status, com::to_wide("Installation failed.").as_ptr());
+                        EnableWindow(state.hwnd_btn_install, 1);
+                        InvalidateRect(state.hwnd_btn_install, ptr::null(), 1);
+                    }
+                }
+                show_alert(hwnd, "DocuMorph Setup Error", &err_msg, true);
+            }
+            0
         }
         WM_COMMAND => {
             let id = (wparam & 0xFFFF) as usize;
@@ -181,60 +206,47 @@ unsafe extern "system" fn installer_wndproc(
                     }
                 }
                 ID_BTN_INSTALL => {
-                    let mut is_installed = false;
-                    if let Ok(guard) = INSTALLER_STATE.lock() {
-                        if let Some(state) = guard.as_ref() {
-                            is_installed = state.installed;
-                        }
-                    }
+                    let is_installed = INSTALLER_STATE
+                        .lock()
+                        .ok()
+                        .and_then(|g| g.as_ref().map(|s| s.installed))
+                        .unwrap_or(false);
 
                     if is_installed {
                         DestroyWindow(hwnd);
                         return 0;
                     }
 
-                    let target_str = if let Ok(guard) = INSTALLER_STATE.lock() {
-                        if let Some(state) = guard.as_ref() {
-                            get_edit_text(state.hwnd_edit_dir)
-                        } else {
-                            String::new()
-                        }
-                    } else {
-                        String::new()
-                    };
+                    let target_str = INSTALLER_STATE
+                        .lock()
+                        .ok()
+                        .and_then(|g| g.as_ref().map(|s| get_edit_text(s.hwnd_edit_dir)))
+                        .unwrap_or_default();
 
                     let target_path = PathBuf::from(target_str.trim());
                     if target_path.as_os_str().is_empty() {
-                        show_alert("DocuMorph Setup", "Please select a valid installation directory.", true);
+                        show_alert(hwnd, "DocuMorph Setup", "Please select a valid installation directory.", true);
                         return 0;
                     }
 
-                    match perform_install(&target_path) {
-                        Ok(_) => {
-                            if let Ok(mut guard) = INSTALLER_STATE.lock() {
-                                if let Some(state) = guard.as_mut() {
-                                    state.installed = true;
-                                    let success_text = format!(
-                                        "✓ Installed to {}! Explorer context menu is ready.",
-                                        target_path.display()
-                                    );
-                                    SetWindowTextW(state.hwnd_lbl_status, com::to_wide(&success_text).as_ptr());
-                                    InvalidateRect(state.hwnd_btn_install, ptr::null(), 1);
-                                }
-                            }
-                            show_alert(
-                                "DocuMorph Setup",
-                                &format!(
-                                    "Installation Successful!\n\nDocuMorph has been installed to:\n{}\n\nRight-click any Word, PowerPoint, or Excel document in File Explorer to convert to PDF with 100% font fidelity.",
-                                    target_path.display()
-                                ),
-                                false,
-                            );
-                        }
-                        Err(e) => {
-                            show_alert("DocuMorph Setup Error", &e, true);
+                    if let Ok(guard) = INSTALLER_STATE.lock() {
+                        if let Some(state) = guard.as_ref() {
+                            EnableWindow(state.hwnd_btn_install, 0);
+                            SetWindowTextW(state.hwnd_lbl_status, com::to_wide("Installing DocuMorph, please wait...").as_ptr());
                         }
                     }
+
+                    let hwnd_target = hwnd as isize;
+                    thread::spawn(move || {
+                        let res = perform_install(&target_path);
+                        let (success, err_ptr) = match res {
+                            Ok(_) => (1, 0isize),
+                            Err(e) => (0, Box::into_raw(Box::new(e)) as isize),
+                        };
+                        unsafe {
+                            PostMessageW(hwnd_target as HWND, WM_APP_INSTALL_RESULT, success, err_ptr);
+                        }
+                    });
                 }
                 ID_BTN_CANCEL => {
                     DestroyWindow(hwnd);
@@ -266,6 +278,13 @@ unsafe extern "system" fn installer_wndproc(
 fn main() {
     let args: Vec<String> = env::args().collect();
     let is_silent = args.iter().any(|a| a == "--silent" || a == "-s" || a == "/S");
+
+    // Request administrative elevation if running unelevated
+    if !documorph::elevation::is_elevated() {
+        if documorph::elevation::relaunch_elevated(&args[1..]) {
+            std::process::exit(0);
+        }
+    }
 
     let default_dest = env::var("ProgramFiles")
         .map(|p| PathBuf::from(p).join("DocuMorph"))
@@ -308,15 +327,9 @@ fn main() {
 
         let title = com::to_wide("DocuMorph Setup (v1.2.0)");
         let hwnd_main = CreateWindowExW(
-            WS_EX_APPWINDOW | WS_EX_COMPOSITED,
-            class_name.as_ptr(),
-            title.as_ptr(),
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
-            px, py, win_w, win_h,
-            ptr::null_mut(),
-            ptr::null_mut(),
-            hinstance,
-            ptr::null_mut(),
+            WS_EX_APPWINDOW | WS_EX_COMPOSITED, class_name.as_ptr(), title.as_ptr(),
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, px, py, win_w, win_h,
+            ptr::null_mut(), ptr::null_mut(), hinstance, ptr::null_mut(),
         );
 
         if hwnd_main.is_null() {
@@ -328,43 +341,21 @@ fn main() {
         let fonts = ui::controls::ControlFonts::new();
         let theme = FluentTheme::new();
 
-        // Top Brand Header
         ui::controls::create_label(hwnd_main, "DocuMorph Setup", 28, 18, 280, 26, fonts.title);
-        ui::controls::create_label(
-            hwnd_main,
-            "v1.2.0 • High-Fidelity Document to PDF Converter with TrueType Font Embedding",
-            28, 48, 550, 20, fonts.small,
-        );
+        ui::controls::create_label(hwnd_main, "v1.2.0 • High-Fidelity Document to PDF Converter with TrueType Font Embedding", 28, 48, 550, 20, fonts.small);
 
-        // Card 1 Content (Installation Destination)
         ui::controls::create_label(hwnd_main, "Installation Folder", 40, 92, 200, 18, fonts.bold);
         let default_dir_str = default_dest.to_string_lossy().to_string();
-        let hwnd_edit_dir = ui::controls::create_edit(
-            hwnd_main, &default_dir_str, ID_EDIT_DIR, 40, 116, 415, 26, fonts.normal, false,
-        );
-        let _ = ui::controls::create_fluent_button(
-            hwnd_main, "Browse...", ID_BTN_BROWSE, 465, 115, 95, 28, fonts.normal,
-        );
+        let hwnd_edit_dir = ui::controls::create_edit(hwnd_main, &default_dir_str, ID_EDIT_DIR, 40, 116, 415, 26, fonts.normal, false);
+        let _ = ui::controls::create_fluent_button(hwnd_main, "Browse...", ID_BTN_BROWSE, 465, 115, 95, 28, fonts.normal);
 
-        // Card 2 Content (Feature Highlights)
         ui::controls::create_label(hwnd_main, "Features & Integration", 40, 192, 250, 18, fonts.bold);
-        ui::controls::create_label(
-            hwnd_main,
-            "• Adds 'Convert to PDF with DocuMorph' right-click menu in File Explorer\n\n• Supports Word (.docx, .doc), PowerPoint (.pptx, .ppt), Excel (.xlsx, .xls)\n\n• 100% TrueType document font embedding (zero fallback font substitution)\n\n• Automatically registered in Windows Settings Installed Apps with clean uninstaller",
-            40, 218, 520, 115, fonts.normal,
-        );
+        let desc = "• Adds 'Convert to PDF with DocuMorph' right-click menu in File Explorer\n\n• Supports Word (.docx, .doc), PowerPoint (.pptx, .ppt), Excel (.xlsx, .xls)\n\n• 100% TrueType document font embedding (zero fallback font substitution)\n\n• Automatically registered in Windows Settings Installed Apps with clean uninstaller";
+        ui::controls::create_label(hwnd_main, desc, 40, 218, 520, 115, fonts.normal);
 
-        // Bottom Action Bar (Generously positioned at y = 390 with zero cutoff!)
-        let hwnd_lbl_status = ui::controls::create_label(
-            hwnd_main, "Ready to install.", 28, 402, 310, 22, fonts.normal,
-        );
-
-        let hwnd_btn_install = ui::controls::create_fluent_button(
-            hwnd_main, "Install Now", ID_BTN_INSTALL, 350, 394, 125, 36, fonts.bold,
-        );
-        let hwnd_btn_cancel = ui::controls::create_fluent_button(
-            hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 394, 95, 36, fonts.normal,
-        );
+        let hwnd_lbl_status = ui::controls::create_label(hwnd_main, "Ready to install.", 28, 402, 310, 22, fonts.normal);
+        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install Now", ID_BTN_INSTALL, 350, 394, 125, 36, fonts.bold);
+        let hwnd_btn_cancel = ui::controls::create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 394, 95, 36, fonts.normal);
 
         if let Ok(mut guard) = INSTALLER_STATE.lock() {
             *guard = Some(InstallerState {

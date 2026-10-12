@@ -55,6 +55,12 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let silent = args.iter().any(|a| a == "--silent" || a == "-s" || a == "/S");
 
+    if !documorph::elevation::is_elevated() {
+        if documorph::elevation::relaunch_elevated(&args[1..]) {
+            std::process::exit(0);
+        }
+    }
+
     if !silent {
         let confirmed = show_dialog(
             "DocuMorph Uninstall",

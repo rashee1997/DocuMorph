@@ -11,7 +11,7 @@ use windows_sys::Win32::Graphics::Gdi::{
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::{
-    InitCommonControlsEx, DRAWITEMSTRUCT, ICC_PROGRESS_CLASS, INITCOMMONCONTROLSEX, PBM_SETPOS,
+    InitCommonControlsEx, DRAWITEMSTRUCT, ICC_PROGRESS_CLASS, INITCOMMONCONTROLSEX,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -20,7 +20,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     PostMessageW, PostQuitMessage, RegisterClassExW, SendMessageW, SetWindowTextW, ShowWindow,
     TranslateMessage, CS_HREDRAW, CS_VREDRAW, EN_CHANGE, IDI_APPLICATION, LB_ADDSTRING,
     SM_CXSCREEN, SM_CYSCREEN, SW_SHOW, WM_APP, WM_CLOSE, WM_COMMAND, WM_CTLCOLORSTATIC,
-    WM_DESTROY, WM_DRAWITEM, WM_ERASEBKGND, WM_PAINT, WNDCLASSEXW, WS_CAPTION,
+    WM_DESTROY, WM_DRAWITEM, WM_ERASEBKGND, WM_PAINT, WM_TIMER, WNDCLASSEXW, WS_CAPTION,
     WS_EX_APPWINDOW, WS_EX_COMPOSITED, WS_OVERLAPPED, WS_SYSMENU,
 };
 
@@ -182,6 +182,19 @@ unsafe extern "system" fn window_proc(
             }
             0
         }
+        WM_TIMER => {
+            if wparam == crate::ui::anim::ID_TIMER_PROGRESS {
+                if let Ok(guard) = UI_STATE.lock() {
+                    if let Some(state) = guard.as_ref() {
+                        crate::ui::anim::on_timer_tick(
+                            state.hwnd_progress_current,
+                            state.hwnd_progress_overall,
+                        );
+                    }
+                }
+            }
+            0
+        }
         WM_APP_FILE_START => {
             let idx = (wparam & 0xFFFF) as usize;
             let total = ((wparam >> 16) & 0xFFFF) as usize;
@@ -193,8 +206,8 @@ unsafe extern "system" fn window_proc(
                         let text = format!("Converting file {} of {}: {}", idx + 1, total, filename);
                         SetWindowTextW(state.hwnd_lbl_status_main, to_wide(&text).as_ptr());
                         let overall_pct = ((idx as f32 / total as f32) * 100.0) as usize;
-                        SendMessageW(state.hwnd_progress_overall, PBM_SETPOS, overall_pct, 0);
-                        SendMessageW(state.hwnd_progress_current, PBM_SETPOS, 0, 0);
+                        crate::ui::anim::set_overall_target(overall_pct);
+                        crate::ui::anim::set_target_percent(10);
                         InvalidateRect(state.hwnd_lbl_status_main, ptr::null(), 1);
                     }
                 }
@@ -206,9 +219,9 @@ unsafe extern "system" fn window_proc(
             let text_ptr = lparam as *mut String;
             if !text_ptr.is_null() {
                 let text = *Box::from_raw(text_ptr);
+                crate::ui::anim::set_target_percent(pct);
                 if let Ok(guard) = UI_STATE.lock() {
                     if let Some(state) = guard.as_ref() {
-                        SendMessageW(state.hwnd_progress_current, PBM_SETPOS, pct, 0);
                         SetWindowTextW(state.hwnd_lbl_status_sub, to_wide(&text).as_ptr());
                         InvalidateRect(state.hwnd_lbl_status_sub, ptr::null(), 1);
                     }
@@ -221,8 +234,7 @@ unsafe extern "system" fn window_proc(
             let total = lparam as usize;
             if let Ok(guard) = UI_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
-                    SendMessageW(state.hwnd_progress_overall, PBM_SETPOS, 100, 0);
-                    SendMessageW(state.hwnd_progress_current, PBM_SETPOS, 100, 0);
+                    crate::ui::anim::stop_anim(hwnd, state.hwnd_progress_current, state.hwnd_progress_overall);
                     let result_str = format!(
                         "✓ Successfully converted {} of {} documents to PDF!",
                         success_count, total
