@@ -11,7 +11,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, LoadImageW, SendMessageW, BM_SETCHECK, ES_AUTOHSCROLL, ES_READONLY,
     HICON, HMENU, IMAGE_ICON, LR_LOADFROMFILE, LBS_NOTIFY, WS_BORDER, WS_CHILD, WS_GROUP,
     WS_TABSTOP, WS_VISIBLE, WS_VSCROLL, BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON, BS_GROUPBOX,
-    BS_PUSHBUTTON, WM_SETFONT, WM_SETICON, ICON_BIG, ICON_SMALL,
+    BS_PUSHBUTTON, BS_OWNERDRAW, WM_SETFONT, WM_SETICON, ICON_BIG, ICON_SMALL,
 };
 
 pub const BST_CHECKED: usize = 1;
@@ -114,6 +114,36 @@ pub fn create_button(
             class.as_ptr(),
             wide_text.as_ptr(),
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | (BS_PUSHBUTTON as u32),
+            x, y, w, h,
+            parent,
+            id as HMENU,
+            hinstance,
+            ptr::null_mut(),
+        );
+        SendMessageW(hwnd, WM_SETFONT, font as usize, 1);
+        hwnd
+    }
+}
+
+pub fn create_fluent_button(
+    parent: HWND,
+    text: &str,
+    id: usize,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    font: HFONT,
+) -> HWND {
+    unsafe {
+        let class = to_wide("BUTTON");
+        let wide_text = to_wide(text);
+        let hinstance = GetModuleHandleW(ptr::null());
+        let hwnd = CreateWindowExW(
+            0,
+            class.as_ptr(),
+            wide_text.as_ptr(),
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | (BS_OWNERDRAW as u32),
             x, y, w, h,
             parent,
             id as HMENU,

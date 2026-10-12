@@ -4,28 +4,34 @@ use std::sync::mpsc::channel;
 use std::sync::Mutex;
 use std::thread;
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{COLOR_BTNFACE, DeleteObject, UpdateWindow};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{
+    BeginPaint, DeleteObject, EndPaint, FillRect, ScreenToClient, SetBkMode,
+    SetTextColor, UpdateWindow, HDC, PAINTSTRUCT, TRANSPARENT,
+};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::{
-    InitCommonControlsEx, INITCOMMONCONTROLSEX, ICC_PROGRESS_CLASS, PBM_SETPOS,
+    InitCommonControlsEx, DRAWITEMSTRUCT, ICC_PROGRESS_CLASS, INITCOMMONCONTROLSEX, PBM_SETPOS,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
-use windows_sys::Win32::UI::Shell::ShellExecuteW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetMessageW,
-    GetSystemMetrics, LoadIconW, PostMessageW,
-    PostQuitMessage, RegisterClassExW, SendMessageW, SetWindowTextW, ShowWindow,
+    AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+    GetClientRect, GetMessageW, GetSystemMetrics, GetWindowRect, GetWindowTextW, LoadIconW,
+    PostMessageW, PostQuitMessage, RegisterClassExW, SendMessageW, SetWindowTextW, ShowWindow,
     TranslateMessage, CS_HREDRAW, CS_VREDRAW, EN_CHANGE, IDI_APPLICATION, LB_ADDSTRING,
-    LB_DELETESTRING, LB_ERR, LB_GETCURSEL, LB_RESETCONTENT, SM_CXSCREEN, SM_CYSCREEN,
-    SW_SHOW, SW_SHOWNORMAL, WM_APP, WM_CLOSE, WM_COMMAND, WM_DESTROY, WNDCLASSEXW,
-    WS_CAPTION, WS_EX_APPWINDOW, WS_OVERLAPPED, WS_SYSMENU,
+    SM_CXSCREEN, SM_CYSCREEN, SW_SHOW, WM_APP, WM_CLOSE, WM_COMMAND, WM_CTLCOLORSTATIC,
+    WM_DESTROY, WM_DRAWITEM, WM_ERASEBKGND, WM_PAINT, WNDCLASSEXW, WS_CAPTION,
+    WS_EX_APPWINDOW, WS_EX_COMPOSITED, WS_OVERLAPPED, WS_SYSMENU,
 };
 
 use crate::com::to_wide;
+use crate::ui::actions::*;
 use crate::ui::builder::{build_dialog_controls, update_file_count, update_preview};
 use crate::ui::controls::*;
-use crate::ui::dialogs::{pick_documents, pick_folder};
+use crate::ui::fluent::{
+    apply_fluent_window_frame, draw_fluent_button, is_point_inside_card, paint_main_cards, rgb,
+    FluentTheme, COLOR_TEXT_MAIN_RGB,
+};
 use crate::ui::worker::start_conversion_flow;
 
 pub const WM_APP_ADD_FILE: u32 = WM_APP + 1;
@@ -58,6 +64,7 @@ pub const ID_BTN_OPEN_DIR: usize = 142;
 pub struct UiState {
     pub hwnd_main: HWND,
     pub fonts: ControlFonts,
+    pub theme: FluentTheme,
     pub queued_files: Vec<PathBuf>,
     pub custom_dest: Option<PathBuf>,
     pub last_output_dir: Option<PathBuf>,
@@ -95,6 +102,67 @@ unsafe extern "system" fn window_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     match msg {
+        WM_ERASEBKGND => {
+            let hdc = wparam as HDC;
+            let mut rc: RECT = std::mem::zeroed();
+            GetClientRect(hwnd, &mut rc);
+            if let Ok(guard) = UI_STATE.lock() {
+                if let Some(state) = guard.as_ref() {
+                    FillRect(hdc, &rc, state.theme.canvas_brush);
+                }
+            }
+            1
+        }
+        WM_PAINT => {
+            let mut ps: PAINTSTRUCT = std::mem::zeroed();
+            let hdc = BeginPaint(hwnd, &mut ps);
+            if let Ok(guard) = UI_STATE.lock() {
+                if let Some(state) = guard.as_ref() {
+                    paint_main_cards(hdc, &state.theme);
+                }
+            }
+            EndPaint(hwnd, &ps);
+            0
+        }
+        WM_CTLCOLORSTATIC => {
+            let hdc = wparam as HDC;
+            SetBkMode(hdc, TRANSPARENT as i32);
+            SetTextColor(
+                hdc,
+                rgb(
+                    COLOR_TEXT_MAIN_RGB.0,
+                    COLOR_TEXT_MAIN_RGB.1,
+                    COLOR_TEXT_MAIN_RGB.2,
+                ),
+            );
+            if let Ok(guard) = UI_STATE.lock() {
+                if let Some(state) = guard.as_ref() {
+                    let mut rect: RECT = std::mem::zeroed();
+                    GetWindowRect(lparam as HWND, &mut rect);
+                    let mut pt = POINT { x: rect.left, y: rect.top };
+                    ScreenToClient(hwnd, &mut pt);
+                    return if is_point_inside_card(pt.y) {
+                        state.theme.card_brush as isize
+                    } else {
+                        state.theme.canvas_brush as isize
+                    };
+                }
+            }
+            0
+        }
+        WM_DRAWITEM => {
+            let dis = &*(lparam as *const DRAWITEMSTRUCT);
+            if let Ok(guard) = UI_STATE.lock() {
+                if let Some(state) = guard.as_ref() {
+                    let mut text_buf = [0u16; 64];
+                    let len = GetWindowTextW(dis.hwndItem, text_buf.as_mut_ptr(), 64) as usize;
+                    let text = String::from_utf16_lossy(&text_buf[..len]);
+                    let is_primary = dis.CtlID as usize == ID_BTN_START;
+                    draw_fluent_button(dis, &state.theme, &text, is_primary);
+                }
+            }
+            1
+        }
         WM_APP_ADD_FILE => {
             let path_ptr = lparam as *mut PathBuf;
             if !path_ptr.is_null() {
@@ -179,98 +247,14 @@ unsafe extern "system" fn window_proc(
             }
 
             match id {
-                ID_BTN_ADD => {
-                    let files = pick_documents(hwnd);
-                    if !files.is_empty() {
-                        if let Ok(mut guard) = UI_STATE.lock() {
-                            if let Some(state) = guard.as_mut() {
-                                for f in files {
-                                    if !state.queued_files.contains(&f) {
-                                        let name = f.file_name().and_then(|n| n.to_str()).unwrap_or("file");
-                                        let wide = to_wide(name);
-                                        SendMessageW(state.hwnd_list, LB_ADDSTRING, 0, wide.as_ptr() as isize);
-                                        state.queued_files.push(f);
-                                    }
-                                }
-                            }
-                        }
-                        update_file_count();
-                        update_preview();
-                    }
-                }
-                ID_BTN_REMOVE => {
-                    if let Ok(mut guard) = UI_STATE.lock() {
-                        if let Some(state) = guard.as_mut() {
-                            let sel = SendMessageW(state.hwnd_list, LB_GETCURSEL, 0, 0);
-                            if sel != LB_ERR as isize {
-                                SendMessageW(state.hwnd_list, LB_DELETESTRING, sel as usize, 0);
-                                if (sel as usize) < state.queued_files.len() {
-                                    state.queued_files.remove(sel as usize);
-                                }
-                            }
-                        }
-                    }
-                    update_file_count();
-                    update_preview();
-                }
-                ID_BTN_CLEAR => {
-                    if let Ok(mut guard) = UI_STATE.lock() {
-                        if let Some(state) = guard.as_mut() {
-                            SendMessageW(state.hwnd_list, LB_RESETCONTENT, 0, 0);
-                            state.queued_files.clear();
-                        }
-                    }
-                    update_file_count();
-                    update_preview();
-                }
-                ID_RADIO_DEST_SRC => {
-                    if let Ok(guard) = UI_STATE.lock() {
-                        if let Some(state) = guard.as_ref() {
-                            EnableWindow(state.hwnd_edit_dest, 0);
-                            EnableWindow(state.hwnd_btn_browse_dest, 0);
-                        }
-                    }
-                }
-                ID_RADIO_DEST_CUST => {
-                    if let Ok(guard) = UI_STATE.lock() {
-                        if let Some(state) = guard.as_ref() {
-                            EnableWindow(state.hwnd_edit_dest, 1);
-                            EnableWindow(state.hwnd_btn_browse_dest, 1);
-                        }
-                    }
-                }
-                ID_BTN_BROWSE_DEST => {
-                    if let Some(folder) = pick_folder(hwnd) {
-                        let wide = to_wide(&folder.to_string_lossy());
-                        if let Ok(mut guard) = UI_STATE.lock() {
-                            if let Some(state) = guard.as_mut() {
-                                SetWindowTextW(state.hwnd_edit_dest, wide.as_ptr());
-                                state.custom_dest = Some(folder);
-                            }
-                        }
-                    }
-                }
-                ID_BTN_START => {
-                    start_conversion_flow(hwnd);
-                }
-                ID_BTN_OPEN_DIR => {
-                    if let Ok(guard) = UI_STATE.lock() {
-                        if let Some(state) = guard.as_ref() {
-                            if let Some(dir) = &state.last_output_dir {
-                                let wide_op = to_wide("open");
-                                let wide_path = to_wide(&dir.to_string_lossy());
-                                ShellExecuteW(
-                                    hwnd,
-                                    wide_op.as_ptr(),
-                                    wide_path.as_ptr(),
-                                    ptr::null(),
-                                    ptr::null(),
-                                    SW_SHOWNORMAL,
-                                );
-                            }
-                        }
-                    }
-                }
+                ID_BTN_ADD => add_files_from_dialog(hwnd),
+                ID_BTN_REMOVE => remove_selected_file(),
+                ID_BTN_CLEAR => clear_all_files(),
+                ID_RADIO_DEST_SRC => set_dest_mode(false),
+                ID_RADIO_DEST_CUST => set_dest_mode(true),
+                ID_BTN_BROWSE_DEST => browse_custom_dest(hwnd),
+                ID_BTN_START => start_conversion_flow(hwnd),
+                ID_BTN_OPEN_DIR => open_output_folder(hwnd),
                 ID_BTN_CANCEL => {
                     DestroyWindow(hwnd);
                 }
@@ -315,13 +299,23 @@ pub fn show_main_dialog(initial_files: Vec<PathBuf>) -> Result<(), String> {
         wc.hInstance = hinstance;
         wc.hIcon = LoadIconW(ptr::null_mut(), IDI_APPLICATION);
         wc.hCursor = ptr::null_mut();
-        wc.hbrBackground = (COLOR_BTNFACE + 1) as windows_sys::Win32::Graphics::Gdi::HBRUSH;
+        wc.hbrBackground = ptr::null_mut();
         wc.lpszClassName = class_name.as_ptr();
 
         RegisterClassExW(&wc);
 
-        let win_w = 620;
-        let win_h = 580;
+        let mut client_rect = RECT {
+            left: 0,
+            top: 0,
+            right: 640,
+            bottom: 630,
+        };
+        let style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU;
+        let ex_style = WS_EX_APPWINDOW | WS_EX_COMPOSITED;
+        AdjustWindowRectEx(&mut client_rect, style, 0, ex_style);
+
+        let win_w = client_rect.right - client_rect.left;
+        let win_h = client_rect.bottom - client_rect.top;
         let sx = GetSystemMetrics(SM_CXSCREEN);
         let sy = GetSystemMetrics(SM_CYSCREEN);
         let px = (sx - win_w) / 2;
@@ -329,10 +323,10 @@ pub fn show_main_dialog(initial_files: Vec<PathBuf>) -> Result<(), String> {
 
         let title = to_wide("DocuMorph — Document to PDF Converter (v1.1.0)");
         let hwnd_main = CreateWindowExW(
-            WS_EX_APPWINDOW,
+            ex_style,
             class_name.as_ptr(),
             title.as_ptr(),
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+            style,
             px, py, win_w, win_h,
             ptr::null_mut(),
             ptr::null_mut(),
@@ -345,6 +339,7 @@ pub fn show_main_dialog(initial_files: Vec<PathBuf>) -> Result<(), String> {
         }
 
         apply_window_icon(hwnd_main);
+        apply_fluent_window_frame(hwnd_main);
 
         // Build controls and populate initial files
         let state = build_dialog_controls(hwnd_main, &initial_files);
