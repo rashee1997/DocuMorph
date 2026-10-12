@@ -10,7 +10,7 @@ use std::thread;
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{
     BeginPaint, DeleteObject, EndPaint, FillRect, InvalidateRect, ScreenToClient,
-    SetBkMode, SetTextColor, UpdateWindow, HDC, PAINTSTRUCT, TRANSPARENT,
+    SetBkMode, SetTextColor, HDC, PAINTSTRUCT, TRANSPARENT,
 };
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::Controls::DRAWITEMSTRUCT;
@@ -32,6 +32,7 @@ use documorph::ui::fluent::{
 use documorph::{com, registry, ui};
 use documorph::ui::anim::{start_anim, set_target_percent, ID_TIMER_PROGRESS, PBM_SETPOS};
 use windows_sys::Win32::UI::WindowsAndMessaging::{KillTimer, SendMessageW, SW_HIDE};
+
 
 const DOCUMORPH_EXE_BYTES: &[u8] = include_bytes!("../../target/release/documorph.exe");
 const UNINSTALLER_EXE_BYTES: &[u8] = include_bytes!("../../target/release/uninstaller.exe");
@@ -112,16 +113,29 @@ unsafe extern "system" fn installer_wndproc(
             1
         }
         WM_PAINT => {
-            let mut ps: PAINTSTRUCT = std::mem::zeroed();
-            let hdc = BeginPaint(hwnd, &mut ps);
-            if let Ok(guard) = INSTALLER_STATE.lock() {
+            // Fast path: only paint if we have a valid state
+            let paint_result = if let Ok(guard) = INSTALLER_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
+                    let mut ps: PAINTSTRUCT = std::mem::zeroed();
+                    let hdc = BeginPaint(hwnd, &mut ps);
+                    // Draw cards - these are simple rectangles, should be fast
                     draw_card(hdc, &RECT { left: 24, top: 78, right: 580, bottom: 165 }, &state.theme);
                     draw_card(hdc, &RECT { left: 24, top: 178, right: 580, bottom: 350 }, &state.theme);
+                    EndPaint(hwnd, &mut ps);
+                    true
+                } else {
+                    false
                 }
+            } else {
+                false
+            };
+            
+            if !paint_result {
+                // Fallback: let default proc handle it
+                DefWindowProcW(hwnd, WM_PAINT, 0, 0)
+            } else {
+                0
             }
-            EndPaint(hwnd, &ps);
-            0
         }
         WM_CTLCOLORSTATIC => {
             let hdc = wparam as HDC;
@@ -286,9 +300,10 @@ unsafe extern "system" fn installer_wndproc(
                             set_target_percent(100);
                             start_anim(hwnd);
                             
-                            // Force immediate UI update
-                            InvalidateRect(hwnd, ptr::null(), 1);
-                            UpdateWindow(hwnd);
+                            // Force immediate UI update with proper invalidation
+                            // Use RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE for immediate redraw
+                            windows_sys::Win32::Graphics::Gdi::InvalidateRect(hwnd, ptr::null(), 1);
+                            windows_sys::Win32::Graphics::Gdi::UpdateWindow(hwnd);
                         }
                     }
 
@@ -377,7 +392,7 @@ fn main() {
         RegisterClassExW(&wc);
 
         let win_w = 620;
-        let win_h = 490;
+        let win_h = 520; // Increased height to fit all elements with margin
         let sx = GetSystemMetrics(SM_CXSCREEN);
         let sy = GetSystemMetrics(SM_CYSCREEN);
         let px = (sx - win_w) / 2;
@@ -414,8 +429,9 @@ fn main() {
         let hwnd_lbl_status = ui::controls::create_label(hwnd_main, "Ready to install.", 28, 402, 310, 22, fonts.normal);
         let hwnd_progress = ui::controls::create_progress_bar(hwnd_main, ID_PROGRESS_INSTALL, 28, 432, 560, 12);
         ShowWindow(hwnd_progress, SW_HIDE);
-        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install", ID_BTN_INSTALL, 350, 452, 125, 36, fonts.bold);
-        let hwnd_btn_cancel = ui::controls::create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 452, 95, 36, fonts.normal);
+        // Buttons at y=470 with 40px height = bottom at 510, window is 520, gives 10px margin
+        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install", ID_BTN_INSTALL, 350, 470, 125, 36, fonts.bold);
+        let hwnd_btn_cancel = ui::controls::create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 470, 95, 36, fonts.normal);
 
         if let Ok(mut guard) = INSTALLER_STATE.lock() {
             *guard = Some(InstallerState {
@@ -430,8 +446,7 @@ fn main() {
             });
         }
 
-        ShowWindow(hwnd_main, SW_SHOW);
-        UpdateWindow(hwnd_main);
+        ShowWindow(hwnd_main, SW_SHOW);                            windows_sys::Win32::Graphics::Gdi::UpdateWindow(hwnd_main);
 
         let mut msg: windows_sys::Win32::UI::WindowsAndMessaging::MSG = std::mem::zeroed();
         while GetMessageW(&mut msg, ptr::null_mut(), 0, 0) > 0 {
