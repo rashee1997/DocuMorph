@@ -1,5 +1,6 @@
 use std::path::Path;
 use super::{ComDispatch, IDispatch, ManagedBstr, ManagedVariant};
+use crate::options::PdfStandard;
 
 pub struct WordConverter;
 
@@ -7,6 +8,7 @@ impl WordConverter {
     pub fn convert<F>(
         input_path: &Path,
         output_path: &Path,
+        pdf_standard: PdfStandard,
         mut progress: F,
     ) -> Result<(), String>
     where
@@ -79,6 +81,7 @@ impl WordConverter {
         //   KeepIRM=true, CreateBookmarks=1, DocStructureTags=true,
         //   BitmapMissingFonts=true, UseISO19005_1=false
         // )
+        let use_iso = pdf_standard == PdfStandard::PdfA1a;
         let mut export_args = [
             ManagedVariant::from_bstr(output_bstr.0),
             ManagedVariant::from_i4(17),       // wdExportFormatPDF = 17
@@ -93,7 +96,7 @@ impl WordConverter {
             ManagedVariant::from_i4(1),        // CreateBookmarks = wdExportCreateHeadingBookmarks (1)
             ManagedVariant::from_bool(true),   // DocStructureTags = true
             ManagedVariant::from_bool(true),   // BitmapMissingFonts = true
-            ManagedVariant::from_bool(false),  // UseISO19005_1 = false
+            ManagedVariant::from_bool(use_iso), // UseISO19005_1 = true for PDF/A
         ];
 
         let export_result = doc.invoke_method("ExportAsFixedFormat", &mut export_args);

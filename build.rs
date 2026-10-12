@@ -6,8 +6,8 @@ fn main() {
         res.set_manifest_file("resources/app.manifest");
         res.set("FileDescription", "DocuMorph Document-to-PDF Engine");
         res.set("ProductName", "DocuMorph");
-        res.set("ProductVersion", "1.0.0.0");
-        res.set("FileVersion", "1.0.0.0");
+        res.set("ProductVersion", "1.1.0.0");
+        res.set("FileVersion", "1.1.0.0");
         res.set("LegalCopyright", "Copyright (c) 2026 Rasheed Hameed");
         res.set("OriginalFilename", "documorph.exe");
         if let Err(e) = res.compile() {

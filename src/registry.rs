@@ -1,5 +1,6 @@
 use std::env;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::ptr;
 use windows_sys::Win32::Foundation::{ERROR_SUCCESS, S_OK};
 use windows_sys::Win32::System::Com::CLSIDFromProgID;
@@ -14,6 +15,18 @@ use crate::com::to_wide;
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls"];
 pub const VERB_KEY: &str = "DocuMorph.ConvertToPdf";
 pub const VERB_MENU_TEXT: &str = "Convert to PDF with DocuMorph";
+pub const UNINSTALL_REG_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\DocuMorph";
+
+pub const ICON_RAW_BYTES: &[u8] = include_bytes!("../resources/icon.ico");
+
+/// Ensures a physical icon.ico file exists on disk and returns its absolute path
+pub fn ensure_icon_on_disk(target_dir: &Path) -> PathBuf {
+    let icon_file = target_dir.join("icon.ico");
+    if !icon_file.exists() {
+        let _ = fs::write(&icon_file, ICON_RAW_BYTES);
+    }
+    icon_file
+}
 
 fn set_registry_string(hkey: HKEY, value_name: Option<&str>, data: &str) -> Result<(), String> {
     unsafe {
@@ -42,15 +55,17 @@ fn set_registry_string(hkey: HKEY, value_name: Option<&str>, data: &str) -> Resu
     }
 }
 
-/// Registers DocuMorph in the Windows Explorer context menu for all supported Office formats
-pub fn register() -> Result<(), String> {
-    let exe_path = env::current_exe()
-        .map_err(|e| format!("Could not determine executable path: {}", e))?;
+/// Registers DocuMorph in the Windows Explorer context menu for a specific installation directory
+pub fn register_for_dir(install_dir: &Path) -> Result<(), String> {
+    let exe_path = install_dir.join("documorph.exe");
     let exe_str = exe_path
         .to_str()
         .ok_or_else(|| "Executable path contains invalid characters".to_string())?;
 
-    let icon_str = format!("\"{}\",0", exe_str);
+    // Ensure icon.ico exists in install dir
+    let icon_path = ensure_icon_on_disk(install_dir);
+    // CRITICAL: Windows Explorer requires the Icon value to be UNQUOTED!
+    let icon_str = icon_path.to_string_lossy().to_string();
     let command_str = format!("\"{}\" \"%1\"", exe_str);
 
     for ext in SUPPORTED_EXTENSIONS {
@@ -75,9 +90,9 @@ pub fn register() -> Result<(), String> {
                 return Err(format!("Failed to create registry key for {}: code {}", ext, status));
             }
 
-            // Set menu item display name: (Default) = "Convert to PDF with DocuMorph"
+            // Set menu item display name
             set_registry_string(hkey_base, None, VERB_MENU_TEXT)?;
-            // Set menu icon: Icon = "<exe_path>,0"
+            // Set unquoted icon path
             set_registry_string(hkey_base, Some("Icon"), &icon_str)?;
 
             // Create command subkey
@@ -102,7 +117,7 @@ pub fn register() -> Result<(), String> {
                 return Err(format!("Failed to create command key for {}: code {}", ext, status_cmd));
             }
 
-            // Set command action: (Default) = "<exe_path>" "%1"
+            // Set command action
             set_registry_string(hkey_cmd, None, &command_str)?;
 
             RegCloseKey(hkey_cmd);
@@ -111,6 +126,53 @@ pub fn register() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Registers DocuMorph using the directory of the current running binary
+pub fn register() -> Result<(), String> {
+    let current_exe = env::current_exe()
+        .map_err(|e| format!("Could not determine executable path: {}", e))?;
+    let install_dir = current_exe
+        .parent()
+        .ok_or_else(|| "Could not determine application directory".to_string())?;
+
+    register_for_dir(install_dir)
+}
+
+/// Registers DocuMorph in Windows Settings "Add or Remove Programs" (Installed Apps)
+pub fn register_uninstaller(install_dir: &Path) -> Result<(), String> {
+    let wide_key = to_wide(UNINSTALL_REG_KEY);
+    let uninst_path = install_dir.join("uninstall.exe");
+    let icon_path = install_dir.join("icon.ico");
+
+    unsafe {
+        let mut hkey: HKEY = ptr::null_mut();
+        let status = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            wide_key.as_ptr(),
+            0,
+            ptr::null_mut(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_WRITE,
+            ptr::null_mut(),
+            &mut hkey,
+            ptr::null_mut(),
+        );
+
+        if status != ERROR_SUCCESS {
+            return Err(format!("Failed to create uninstaller registry key: code {}", status));
+        }
+
+        set_registry_string(hkey, Some("DisplayName"), "DocuMorph Document-to-PDF Engine")?;
+        set_registry_string(hkey, Some("DisplayVersion"), "1.1.0")?;
+        set_registry_string(hkey, Some("Publisher"), "Rasheed Hameed")?;
+        set_registry_string(hkey, Some("DisplayIcon"), &icon_path.to_string_lossy())?;
+        set_registry_string(hkey, Some("UninstallString"), &format!("\"{}\"", uninst_path.to_string_lossy()))?;
+        set_registry_string(hkey, Some("InstallLocation"), &install_dir.to_string_lossy())?;
+
+        RegCloseKey(hkey);
+        Ok(())
+    }
 }
 
 /// Removes DocuMorph context menu entries from the Windows Registry
@@ -122,6 +184,15 @@ pub fn unregister() -> Result<(), String> {
         unsafe {
             let _ = RegDeleteTreeW(HKEY_CURRENT_USER, wide_base.as_ptr());
         }
+    }
+    Ok(())
+}
+
+/// Removes Windows Add or Remove Programs entry
+pub fn unregister_uninstaller() -> Result<(), String> {
+    let wide_key = to_wide(UNINSTALL_REG_KEY);
+    unsafe {
+        let _ = RegDeleteTreeW(HKEY_CURRENT_USER, wide_key.as_ptr());
     }
     Ok(())
 }
@@ -140,11 +211,9 @@ pub fn status() -> Result<String, String> {
     report.push_str("DocuMorph System Diagnostics\n");
     report.push_str("============================\n\n");
 
-    // Check executable
     let current_exe = env::current_exe().unwrap_or_else(|_| PathBuf::from("documorph.exe"));
     report.push_str(&format!("Binary Path : {}\n", current_exe.display()));
 
-    // Check Office COM engines
     let word_ok = check_progid("Word.Application");
     let ppt_ok = check_progid("PowerPoint.Application");
     let excel_ok = check_progid("Excel.Application");
@@ -162,7 +231,6 @@ pub fn status() -> Result<String, String> {
         if excel_ok { "Available (Excel.Application)" } else { "Not Found" }
     ));
 
-    // Check registry integration
     report.push_str("Context Menu Associations (HKCU):\n");
     let mut all_registered = true;
 

@@ -3,7 +3,14 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 
 use crate::com::{ComApartment, ExcelConverter, PowerPointConverter, WordConverter};
-use crate::ui::window::ProgressMessage;
+pub enum ProgressMessage {
+    Update { percent: u32, text: String },
+    Finished {
+        success: bool,
+        message: String,
+        output_path: Option<PathBuf>,
+    },
+}
 
 pub enum DocumentKind {
     Word,
@@ -59,6 +66,7 @@ pub fn determine_output_path(input_path: &Path, overwrite: bool) -> PathBuf {
 pub fn process_conversion(
     input_path: PathBuf,
     output_path: PathBuf,
+    config: crate::options::ConversionConfig,
     tx: Sender<ProgressMessage>,
 ) {
     let kind = match DocumentKind::from_path(&input_path) {
@@ -95,7 +103,7 @@ pub fn process_conversion(
 
         match kind {
             DocumentKind::Word => {
-                WordConverter::convert(&input_path, &temp_output, progress_cb)?;
+                WordConverter::convert(&input_path, &temp_output, config.format, progress_cb)?;
             }
             DocumentKind::PowerPoint => {
                 PowerPointConverter::convert(&input_path, &temp_output, progress_cb)?;
@@ -193,11 +201,12 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Live Office COM integration test - run individually"]
     fn test_live_word_conversion() {
         let (tx, rx) = std::sync::mpsc::channel();
         let input = PathBuf::from(r"F:\DocuMorph\samples\test_sample.docx");
         let output = PathBuf::from(r"F:\DocuMorph\samples\test_sample.pdf");
-        process_conversion(input, output, tx);
+        process_conversion(input, output, crate::options::ConversionConfig::default(), tx);
         while let Ok(msg) = rx.recv() {
             match msg {
                 ProgressMessage::Update { percent, text } => {

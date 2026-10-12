@@ -6,29 +6,49 @@ use std::path::PathBuf;
 use std::ptr;
 
 use windows_sys::Win32::System::Console::{
-    AttachConsole, GetStdHandle, SetStdHandle, ATTACH_PARENT_PROCESS, STD_ERROR_HANDLE,
+    AttachConsole, GetStdHandle, ATTACH_PARENT_PROCESS, STD_ERROR_HANDLE,
     STD_OUTPUT_HANDLE,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     MessageBoxW, MB_ICONERROR, MB_ICONINFORMATION, MB_OK,
 };
 
-mod app;
-mod com;
-mod registry;
-mod ui;
+use documorph::{com, ipc, registry, ui};
 
-fn attach_parent_console() {
+use windows_sys::Win32::Storage::FileSystem::WriteFile;
+
+fn console_print(msg: &str) {
     unsafe {
-        if AttachConsole(ATTACH_PARENT_PROCESS) != 0 {
-            let h_out = GetStdHandle(STD_OUTPUT_HANDLE);
-            if !h_out.is_null() && h_out != (!0usize) as *mut std::ffi::c_void {
-                SetStdHandle(STD_OUTPUT_HANDLE, h_out);
-            }
-            let h_err = GetStdHandle(STD_ERROR_HANDLE);
-            if !h_err.is_null() && h_err != (!0usize) as *mut std::ffi::c_void {
-                SetStdHandle(STD_ERROR_HANDLE, h_err);
-            }
+        let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        let h_out = GetStdHandle(STD_OUTPUT_HANDLE);
+        if !h_out.is_null() && h_out != (!0usize) as *mut std::ffi::c_void {
+            let bytes = format!("{}\r\n", msg);
+            let mut written = 0u32;
+            WriteFile(
+                h_out,
+                bytes.as_ptr(),
+                bytes.len() as u32,
+                &mut written,
+                ptr::null_mut(),
+            );
+        }
+    }
+}
+
+fn console_eprint(msg: &str) {
+    unsafe {
+        let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+        let h_err = GetStdHandle(STD_ERROR_HANDLE);
+        if !h_err.is_null() && h_err != (!0usize) as *mut std::ffi::c_void {
+            let bytes = format!("{}\r\n", msg);
+            let mut written = 0u32;
+            WriteFile(
+                h_err,
+                bytes.as_ptr(),
+                bytes.len() as u32,
+                &mut written,
+                ptr::null_mut(),
+            );
         }
     }
 }
@@ -43,56 +63,55 @@ fn show_alert(title: &str, message: &str, is_error: bool) {
 }
 
 fn print_help() {
-    attach_parent_console();
-    println!(
-        r#"DocuMorph v1.0.0
-High-fidelity Windows context-menu document-to-PDF engine
+    console_print(
+        r#"DocuMorph v1.1.0
+High-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding
 
 USAGE:
-    documorph.exe [OPTIONS] [FILE_PATH]
+    documorph.exe [OPTIONS] [FILE_PATHS...]
 
 ARGS:
-    <FILE_PATH>    Path to .docx, .doc, .pptx, .ppt, .xlsx, or .xls file to convert
+    <FILE_PATHS...> Documents (.docx, .doc, .pptx, .ppt, .xlsx, .xls) to convert
 
 OPTIONS:
-    --register     Register DocuMorph in the Windows File Explorer context menu (HKCU)
-    --unregister   Remove DocuMorph from the Windows context menu
-    --status       Check registry status and Microsoft Office availability
-    --overwrite    Overwrite existing PDF instead of creating a numbered copy
-    --help, -h     Show this help message
-    --version, -v  Show version information
+    --register       Register DocuMorph in the Windows File Explorer context menu (HKCU)
+    --unregister     Remove DocuMorph from the Windows context menu
+    --status         Check registry status and Microsoft Office availability
+    --help, -h       Show this help message
+    --version, -v    Show version information
 
 EXAMPLES:
     documorph.exe --register
     documorph.exe "C:\Users\User\Documents\Report.docx"
-    documorph.exe --overwrite "C:\Users\User\Documents\Slides.pptx"
-"#
+    documorph.exe "Doc1.docx" "Doc2.pptx" "Doc3.xlsx""#,
     );
 }
 
 fn print_version() {
-    attach_parent_console();
-    println!("DocuMorph v1.0.0");
+    console_print("DocuMorph v1.1.0");
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let is_terminal = unsafe { AttachConsole(ATTACH_PARENT_PROCESS) != 0 };
 
-    // Check for CLI flags
+    // Process CLI maintenance flags
     if args.len() > 1 {
         match args[1].as_str() {
             "--register" => {
-                attach_parent_console();
                 match registry::register() {
                     Ok(_) => {
-                        println!("Success: DocuMorph context menu registered for Word, PowerPoint, and Excel.");
+                        console_print("Success: DocuMorph context menu registered for Word, PowerPoint, and Excel.");
                         if !is_terminal {
-                            show_alert("DocuMorph", "Context menu registered successfully!\nYou can now right-click Word, PowerPoint, and Excel files to convert them to PDF.", false);
+                            show_alert(
+                                "DocuMorph",
+                                "Context menu registered successfully!\nYou can now right-click Word, PowerPoint, and Excel files to convert them to PDF.",
+                                false,
+                            );
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error registering context menu: {}", e);
+                        console_eprint(&format!("Error registering context menu: {}", e));
                         if !is_terminal {
                             show_alert("DocuMorph Registration Error", &e, true);
                         }
@@ -101,16 +120,15 @@ fn main() {
                 return;
             }
             "--unregister" => {
-                attach_parent_console();
                 match registry::unregister() {
                     Ok(_) => {
-                        println!("Success: DocuMorph context menu removed from the Windows registry.");
+                        console_print("Success: DocuMorph context menu removed from the Windows registry.");
                         if !is_terminal {
                             show_alert("DocuMorph", "Context menu entries have been removed.", false);
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error unregistering context menu: {}", e);
+                        console_eprint(&format!("Error unregistering context menu: {}", e));
                         if !is_terminal {
                             show_alert("DocuMorph Error", &e, true);
                         }
@@ -119,13 +137,12 @@ fn main() {
                 return;
             }
             "--status" => {
-                attach_parent_console();
                 match registry::status() {
                     Ok(rep) => {
-                        println!("{}", rep);
+                        console_print(&rep);
                     }
                     Err(e) => {
-                        eprintln!("Error inspecting status: {}", e);
+                        console_eprint(&format!("Error inspecting status: {}", e));
                     }
                 }
                 return;
@@ -142,68 +159,35 @@ fn main() {
         }
     }
 
-    // Determine target file and overwrite preference
-    let mut target_file: Option<PathBuf> = None;
-    let mut overwrite = false;
-
+    // Collect all input files passed as arguments
+    let mut input_files: Vec<PathBuf> = Vec::new();
     for arg in args.iter().skip(1) {
-        if arg == "--overwrite" {
-            overwrite = true;
-        } else if !arg.starts_with("--") && target_file.is_none() {
-            target_file = Some(PathBuf::from(arg));
-        }
-    }
-
-    let input_path = match target_file {
-        Some(p) => p,
-        None => {
-            print_help();
-            return;
-        }
-    };
-
-    // Canonicalize and validate source file
-    let canonical_input = match fs::canonicalize(&input_path) {
-        Ok(p) => {
-            // Strip extended path prefix \\?\ if present for COM compatibility
-            let s = p.to_string_lossy();
-            if s.starts_with(r"\\?\") {
+        if !arg.starts_with("--") {
+            let p = PathBuf::from(arg);
+            let canonical = fs::canonicalize(&p).unwrap_or(p);
+            let s = canonical.to_string_lossy().to_string();
+            let clean = if s.starts_with(r"\\?\") {
                 PathBuf::from(&s[4..])
             } else {
-                p
+                canonical
+            };
+            if clean.exists() && clean.is_file() {
+                input_files.push(clean);
             }
         }
-        Err(_) => input_path.clone(),
-    };
-
-    if !canonical_input.exists() {
-        show_alert(
-            "DocuMorph Error",
-            &format!("Source file does not exist:\n{}", canonical_input.display()),
-            true,
-        );
-        return;
     }
 
-    if !canonical_input.is_file() {
-        show_alert(
-            "DocuMorph Error",
-            &format!("Specified path is a directory, not a document:\n{}", canonical_input.display()),
-            true,
-        );
-        return;
-    }
-
-    // Determine output destination
-    let output_path = app::determine_output_path(&canonical_input, overwrite);
-
-    let worker_input = canonical_input.clone();
-    let worker_output = output_path.clone();
-
-    // Show native live progress dialog and run conversion
-    if let Err(e) = ui::show_conversion_dialog(&canonical_input, &output_path, move |tx| {
-        app::process_conversion(worker_input, worker_output, tx);
-    }) {
-        show_alert("DocuMorph Execution Error", &e, true);
+    // Single-instance check:
+    // If another DocuMorph window is already open, pipe the first file to it and exit immediately!
+    match ipc::check_single_instance(input_files.first()) {
+        ipc::IpcMode::Secondary => {
+            return;
+        }
+        ipc::IpcMode::Primary(_mutex) => {
+            // We are the primary instance! Launch the GUI options dialog
+            if let Err(e) = ui::show_main_dialog(input_files) {
+                show_alert("DocuMorph Execution Error", &e, true);
+            }
+        }
     }
 }

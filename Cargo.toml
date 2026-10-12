@@ -1,6 +1,6 @@
 [package]
 name = "documorph"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 authors = ["Rasheed Hameed <rasheedhmech03@gmail.com>"]
 description = "High-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding"
@@ -22,8 +22,13 @@ windows-sys = { version = "0.59", features = [
     "Win32_Security",
     "Win32_Storage_FileSystem",
     "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
     "Win32_System_Registry",
     "Win32_System_Console",
+    "Win32_System_Pipes",
+    "Win32_System_IO",
+    "Win32_UI_Controls_Dialogs",
+    "Win32_UI_Input_KeyboardAndMouse",
 ] }
 
 [build-dependencies]

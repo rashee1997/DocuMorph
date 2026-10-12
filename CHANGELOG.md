@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-12
+
+### Added
+- **Options & Bulk Conversion GUI Dialog**:
+  - Interactive pre-conversion control dialog showing queued files, output options, and live preview.
+  - Multi-file queue with `[+ Add Files...]`, `[- Remove]`, and `[Clear]` controls using native Win32 dialogs.
+  - Single-Instance Named Pipe IPC: Multiple files selected simultaneously in File Explorer seamlessly aggregate into a unified conversion batch.
+- **PDF Archival Standards**:
+  - Toggle between **Standard PDF** and **PDF/A-1a Archival** (`ISO 19005-1`) for enterprise compliance.
+- **Flexible Destination Folders**:
+  - Choice between source document directory or custom destination via native Windows folder browser (`SHBrowseForFolderW`).
+- **Bulk Renaming & Filename Patterns**:
+  - Pattern formatting supporting `{name}`, `{date}`, and `{num}` tokens, with optional prefix and suffix.
+  - Live interactive filename preview updating on every keystroke.
+  - Safe collision prevention with sequential indexing (`(1)`, `(2)`).
+- **Automated Double-Click Setup Wizard (`DocuMorph-Setup.exe`)**:
+  - Standalone, self-contained installer (~1 MB) embedding `documorph.exe`, `uninstall.exe`, and `icon.ico`.
+  - User can select target directory on C: disk or any drive with native folder picker.
+  - Automatic per-user context menu integration in `HKCU\Software\Classes\SystemFileAssociations`.
+  - Native integration with Windows Settings "Installed Apps" / "Add or Remove Programs".
+  - Supports `--silent [PATH]` for automated rollouts.
+- **Standalone GUI Uninstaller (`uninstall.exe`)**:
+  - Removes all registry verbs and associations cleanly.
+  - Autonomous self-deletion and folder cleanup.
+- **Explorer Context Menu & Title Bar Icon Display**:
+  - Unquoted `.ico` registration ensures custom crimson icon renders reliably in Windows File Explorer context menus.
+  - Dual `WM_SETICON` loading ensures application icon displays in the window title bar and taskbar.
+
 ## [1.0.0] - 2026-10-12
 
 ### Added
