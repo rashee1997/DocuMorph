@@ -1,0 +1,84 @@
+name: Release and Build Artifacts
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package Windows x64 Artifacts
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Run Test Suite
+        run: cargo test --lib --verbose
+
+      - name: Build Core Engine and Uninstaller (Release)
+        run: cargo build --release --bin documorph --bin uninstaller
+
+      - name: Build All-in-One Setup Wizard (Release)
+        run: cargo build --release --bin installer
+
+      - name: Package Versioned Artifacts
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path "Cargo.toml" -Pattern 'version\s*=\s*"([^"]+)"').Matches.Groups[1].Value
+          Write-Host "Packaging DocuMorph v$version..."
+          
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          
+          # Copy release executables
+          Copy-Item "target/release/installer.exe" "dist/DocuMorph-Setup.exe"
+          Copy-Item "target/release/installer.exe" "dist/DocuMorph-Setup-v$version.exe"
+          Copy-Item "target/release/documorph.exe" "dist/documorph.exe"
+          Copy-Item "target/release/uninstaller.exe" "dist/uninstall.exe"
+          Copy-Item "resources/icon.ico" "dist/icon.ico"
+          
+          # Create Portable Release ZIP
+          Compress-Archive -Path "dist/documorph.exe", "dist/DocuMorph-Setup.exe", "dist/uninstall.exe", "dist/icon.ico", "README.md", "LICENSE" -DestinationPath "dist/DocuMorph-v$version-Windows-x64.zip"
+          
+          # Generate SHA256 Checksums
+          Get-FileHash -Algorithm SHA256 "dist/DocuMorph-Setup.exe", "dist/DocuMorph-Setup-v$version.exe", "dist/documorph.exe", "dist/uninstall.exe", "dist/DocuMorph-v$version-Windows-x64.zip" | ForEach-Object {
+            "$($_.Hash)  $(Split-Path $_.Path -Leaf)"
+          } | Set-Content "dist/SHA256SUMS.txt"
+          
+          Write-Host "Artifact packaging complete:"
+          Get-ChildItem "dist" | Format-Table Name, Length
+
+      - name: Upload Build Artifacts (Actions Tab)
+        uses: actions/upload-artifact@v4
+        with:
+          name: documorph-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish to GitHub Releases (Tags Only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/DocuMorph-Setup.exe
+            dist/DocuMorph-Setup-*.exe
+            dist/DocuMorph-*.zip
+            dist/SHA256SUMS.txt
+          body_path: RELEASENOTES.md
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
