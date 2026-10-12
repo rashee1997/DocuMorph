@@ -25,12 +25,12 @@ BLOCK "StringFileInfo"
 BLOCK "000004b0"
 {{
 VALUE "FileDescription", "DocuMorph Document-to-PDF Engine"
-VALUE "FileVersion", "1.2.1.0"
+VALUE "FileVersion", "1.2.2.0"
 VALUE "InternalName", "documorph"
 VALUE "LegalCopyright", "Copyright (c) 2026 Rasheedh Ahamad"
 VALUE "OriginalFilename", "documorph.exe"
 VALUE "ProductName", "DocuMorph"
-VALUE "ProductVersion", "1.2.1.0"
+VALUE "ProductVersion", "1.2.2.0"
 }}
 }}
 BLOCK "VarFileInfo"
@@ -72,8 +72,8 @@ VALUE "Translation", 0x0, 0x04b0
         res.set_manifest_file("resources/app.manifest");
         res.set("FileDescription", "DocuMorph Document-to-PDF Engine");
         res.set("ProductName", "DocuMorph");
-        res.set("ProductVersion", "1.2.1.0");
-        res.set("FileVersion", "1.2.1.0");
+        res.set("ProductVersion", "1.2.2.0");
+        res.set("FileVersion", "1.2.2.0");
         res.set("LegalCopyright", "Copyright (c) 2026 Rasheedh Ahamad");
         res.set("OriginalFilename", "documorph.exe");
         let _ = res.compile();

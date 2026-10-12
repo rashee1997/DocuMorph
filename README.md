@@ -61,7 +61,7 @@ Run the installer from an elevated prompt:
 ### 2. Command Line
 
 ```
-DocuMorph v1.2.1
+DocuMorph v1.2.2
 USAGE:
     documorph.exe [OPTIONS] [FILE_PATHS...]
 

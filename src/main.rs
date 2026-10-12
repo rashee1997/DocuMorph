@@ -64,7 +64,7 @@ fn show_alert(title: &str, message: &str, is_error: bool) {
 
 fn print_help() {
     console_print(
-        r#"DocuMorph v1.2.1
+        r#"DocuMorph v1.2.2
 Converts Word, PowerPoint, and Excel files to PDF from Windows File Explorer
 
 USAGE:
@@ -88,7 +88,7 @@ EXAMPLES:
 }
 
 fn print_version() {
-    console_print("DocuMorph v1.2.1");
+    console_print("DocuMorph v1.2.2");
 }
 
 fn main() {

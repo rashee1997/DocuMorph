@@ -1,4 +1,4 @@
-use std::sync::mpsc::channel;
+use std::sync::{mpsc::{channel, RecvTimeoutError}, Arc, Mutex};
 use std::thread;
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
@@ -98,29 +98,81 @@ pub fn start_conversion_flow(hwnd: HWND) {
 
             let output_path = crate::options::resolve_target_path(file, idx, total, &config);
             let (tx, rx) = channel::<app::ProgressMessage>();
+            let tx_clone = tx.clone(); // Clone for sending error messages from main thread
             let input_clone = file.clone();
             let config_clone = config.clone();
 
-            thread::spawn(move || {
-                app::process_conversion(input_clone, output_path, config_clone, tx);
+            // Track thread completion with Arc<Mutex<bool>>
+            let thread_done = Arc::new(Mutex::new(false));
+            let thread_done_clone = thread_done.clone();
+
+            let conversion_handle = thread::spawn(move || {
+                let result = app::process_conversion(input_clone, output_path, config_clone, tx);
+                // Mark thread as done regardless of success/failure
+                *thread_done_clone.lock().unwrap() = true;
+                result
             });
 
-            while let Ok(msg) = rx.recv() {
-                match msg {
-                    app::ProgressMessage::Update { percent, text } => {
-                        let text_boxed = Box::into_raw(Box::new(text));
-                        unsafe {
-                            PostMessageW(hwnd_w, WM_APP_PROGRESS, percent as usize, text_boxed as isize);
+            // Wait for conversion to complete or fail, with a safety timeout
+            let mut timeout_count = 0usize;
+            const MAX_TIMEOUTS: usize = 10; // 10 timeouts * 30 seconds = 5 minutes max wait
+            
+            loop {
+                match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+                    Ok(msg) => {
+                        match msg {
+                            app::ProgressMessage::Update { percent, text } => {
+                                let text_boxed = Box::into_raw(Box::new(text));
+                                unsafe {
+                                    PostMessageW(hwnd_w, WM_APP_PROGRESS, percent as usize, text_boxed as isize);
+                                }
+                            }
+                            app::ProgressMessage::Finished { success, .. } => {
+                                if success {
+                                    success_count += 1;
+                                }
+                                break;
+                            }
                         }
                     }
-                    app::ProgressMessage::Finished { success, .. } => {
-                        if success {
-                            success_count += 1;
+                    Err(RecvTimeoutError::Timeout) => {
+                        // Check if the thread has finished but didn't send a message
+                        if *thread_done.lock().unwrap() {
+                            // Thread finished but didn't send Finished message (bug or panic)
+                            let _ = tx_clone.send(app::ProgressMessage::Finished {
+                                success: false,
+                                message: "Conversion completed without sending result".to_string(),
+                                output_path: None,
+                            });
+                            break;
                         }
+                        
+                        timeout_count += 1;
+                        if timeout_count >= MAX_TIMEOUTS {
+                            // Exceeded maximum wait time - force cancel
+                            let _ = tx_clone.send(app::ProgressMessage::Finished {
+                                success: false,
+                                message: "Conversion timed out after 5 minutes".to_string(),
+                                output_path: None,
+                            });
+                            break;
+                        }
+                        // Continue waiting - COM operations can be slow
+                    }
+                    Err(RecvTimeoutError::Disconnected) => {
+                        // Sender dropped without sending Finished - thread likely panicked
+                        let _ = tx_clone.send(app::ProgressMessage::Finished {
+                            success: false,
+                            message: "Conversion channel disconnected unexpectedly".to_string(),
+                            output_path: None,
+                        });
                         break;
                     }
                 }
             }
+
+            // Join the thread to catch any panics and clean up
+            let _ = conversion_handle.join();
         }
 
         unsafe {

@@ -1,4 +1,4 @@
-# Release Notes — DocuMorph v1.2.1
+# Release Notes — DocuMorph v1.2.2
 
 **DocuMorph** by **Rasheedh Ahamad** is a native Windows desktop utility written in Rust. It enables 1-click document-to-PDF conversion directly from the Windows File Explorer context menu for Microsoft Word (`.docx`, `.doc`), PowerPoint (`.pptx`, `.ppt`), and Excel (`.xlsx`, `.xls`) files.
 

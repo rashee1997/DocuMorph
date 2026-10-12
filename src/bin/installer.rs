@@ -325,7 +325,7 @@ fn main() {
         let px = (sx - win_w) / 2;
         let py = (sy - win_h) / 2;
 
-        let title = com::to_wide("DocuMorph Setup (v1.2.1)");
+        let title = com::to_wide("DocuMorph Setup (v1.2.2)");
         let hwnd_main = CreateWindowExW(
             WS_EX_APPWINDOW | WS_EX_COMPOSITED, class_name.as_ptr(), title.as_ptr(),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, px, py, win_w, win_h,
@@ -342,7 +342,7 @@ fn main() {
         let theme = FluentTheme::new();
 
         ui::controls::create_label(hwnd_main, "DocuMorph Setup", 28, 18, 280, 26, fonts.title);
-        ui::controls::create_label(hwnd_main, "Version 1.2.1", 28, 48, 550, 20, fonts.small);
+        ui::controls::create_label(hwnd_main, "Version 1.2.2", 28, 48, 550, 20, fonts.small);
 
         ui::controls::create_label(hwnd_main, "Installation Folder", 40, 92, 200, 18, fonts.bold);
         let default_dir_str = default_dest.to_string_lossy().to_string();
