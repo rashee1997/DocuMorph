@@ -86,7 +86,7 @@ pub fn process_conversion(
 
     let _ = tx.send(ProgressMessage::Update {
         percent: 10,
-        text: "Initializing COM environment...".to_string(),
+        text: "Starting engine...".to_string(),
     });
 
     let result = (|| -> Result<(), String> {

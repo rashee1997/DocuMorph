@@ -14,7 +14,7 @@ impl ExcelConverter {
     where
         F: FnMut(u32, &str),
     {
-        progress(15, "Starting Microsoft Excel background engine...");
+        progress(15, "Opening Excel...");
 
         let app = ComDispatch::create_instance("Excel.Application")
             .map_err(|e| format!("Could not initialize Excel: {}", e))?;
@@ -28,7 +28,7 @@ impl ExcelConverter {
         let _ = app.set_property("EnableEvents", ManagedVariant::from_bool(false));
         let _ = app.set_property("Calculation", ManagedVariant::from_i4(-4135)); // xlCalculationManual = -4135
 
-        progress(30, "Accessing workbooks collection...");
+        progress(30, "Opening workbook...");
 
         let workbooks = match app.get_dispatch_property("Workbooks") {
             Ok(wb) => wb,
@@ -48,7 +48,7 @@ impl ExcelConverter {
         let input_bstr = ManagedBstr::from_str(input_str);
         let output_bstr = ManagedBstr::from_str(output_str);
 
-        progress(45, "Opening workbook sheets...");
+        progress(45, "Setting up sheets...");
 
         // Workbooks.Open(Filename, UpdateLinks = 0, ReadOnly = true)
         let mut open_args = [
@@ -82,7 +82,7 @@ impl ExcelConverter {
             }
         }
 
-        progress(70, "Exporting spreadsheet to PDF copy...");
+        progress(70, "Exporting PDF...");
 
         // Workbook.ExportAsFixedFormat(
         //   Type = xlTypePDF (0), Filename, Quality = xlQualityStandard (0),
@@ -98,7 +98,7 @@ impl ExcelConverter {
 
         let export_result = workbook.invoke_method("ExportAsFixedFormat", &mut export_args);
 
-        progress(90, "Finalizing spreadsheet export...");
+        progress(90, "Closing workbook...");
 
         // Close workbook without saving changes
         let mut close_args = [ManagedVariant::from_bool(false)];

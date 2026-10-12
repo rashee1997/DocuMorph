@@ -235,15 +235,9 @@ unsafe extern "system" fn window_proc(
             if let Ok(guard) = UI_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
                     crate::ui::anim::stop_anim(hwnd, state.hwnd_progress_current, state.hwnd_progress_overall);
-                    let result_str = format!(
-                        "✓ Successfully converted {} of {} documents to PDF!",
-                        success_count, total
-                    );
+                    let result_str = format!("Converted {} of {} files.", success_count, total);
                     SetWindowTextW(state.hwnd_lbl_status_main, to_wide(&result_str).as_ptr());
-                    SetWindowTextW(
-                        state.hwnd_lbl_status_sub,
-                        to_wide("All fonts embedded with 100% fidelity.").as_ptr(),
-                    );
+                    SetWindowTextW(state.hwnd_lbl_status_sub, to_wide("").as_ptr());
                     ShowWindow(state.hwnd_btn_open_dir, SW_SHOW);
                     SetWindowTextW(state.hwnd_btn_cancel, to_wide("Close").as_ptr());
                     EnableWindow(state.hwnd_btn_cancel, 1);
@@ -335,7 +329,7 @@ pub fn show_main_dialog(initial_files: Vec<PathBuf>) -> Result<(), String> {
         let px = (sx - win_w) / 2;
         let py = (sy - win_h) / 2;
 
-        let title = to_wide("DocuMorph — Document to PDF Converter (v1.2.0)");
+        let title = to_wide("DocuMorph — Document to PDF Converter (v1.2.1)");
         let hwnd_main = CreateWindowExW(
             ex_style,
             class_name.as_ptr(),

@@ -45,7 +45,7 @@ pub fn update_preview() {
             };
 
             let preview_name = render_filename(sample_stem, 0, state.queued_files.len(), &opts);
-            let text = format!("Output Preview: {}", preview_name);
+            let text = format!("Preview: {}", preview_name);
             let wide = to_wide(&text);
             unsafe {
                 SetWindowTextW(state.hwnd_lbl_preview, wide.as_ptr());
@@ -58,7 +58,7 @@ pub fn update_file_count() {
     if let Ok(guard) = UI_STATE.lock() {
         if let Some(state) = guard.as_ref() {
             let count = state.queued_files.len();
-            let text = format!("Documents to Convert ({} queued)", count);
+            let text = format!("Files to convert ({} queued)", count);
             let wide = to_wide(&text);
             unsafe {
                 SetWindowTextW(state.hwnd_lbl_count, wide.as_ptr());
@@ -73,32 +73,28 @@ pub fn build_dialog_controls(hwnd_main: HWND, initial_files: &[PathBuf]) -> UiSt
 
     // Top Header
     create_label(hwnd_main, "DocuMorph", 28, 14, 150, 26, fonts.title);
-    create_label(
-        hwnd_main,
-        "High-Fidelity Document to PDF Converter • Embedded Fonts",
-        160, 20, 440, 20, fonts.small,
-    );
+    create_label(hwnd_main, "Document to PDF Converter", 160, 20, 440, 20, fonts.small);
 
     // Card 1: Files Queue (Card bounds: y=46..172)
-    let hwnd_lbl_count = create_label(hwnd_main, "Documents to Convert", 38, 56, 320, 18, fonts.bold);
+    let hwnd_lbl_count = create_label(hwnd_main, "Files to convert", 38, 56, 320, 18, fonts.bold);
     let hwnd_list = create_listbox(hwnd_main, ID_LIST_FILES, 38, 80, 460, 78, fonts.normal);
-    let _ = create_fluent_button(hwnd_main, "+ Add...", ID_BTN_ADD, 510, 80, 95, 24, fonts.normal);
-    let _ = create_fluent_button(hwnd_main, "- Remove", ID_BTN_REMOVE, 510, 107, 95, 24, fonts.normal);
+    let _ = create_fluent_button(hwnd_main, "Add...", ID_BTN_ADD, 510, 80, 95, 24, fonts.normal);
+    let _ = create_fluent_button(hwnd_main, "Remove", ID_BTN_REMOVE, 510, 107, 95, 24, fonts.normal);
     let _ = create_fluent_button(hwnd_main, "Clear", ID_BTN_CLEAR, 510, 134, 95, 24, fonts.normal);
 
     // Card 2: PDF Format Standard (Card bounds: y=182..244)
     create_label(hwnd_main, "PDF Standard", 38, 190, 200, 18, fonts.bold);
     let hwnd_radio_std = create_radio(
-        hwnd_main, "Standard PDF (Optimized for Screen & Print)", ID_RADIO_STD, 44, 212, 270, 22, fonts.normal, true, true,
+        hwnd_main, "Standard PDF", ID_RADIO_STD, 44, 212, 270, 22, fonts.normal, true, true,
     );
     let hwnd_radio_pdfa = create_radio(
-        hwnd_main, "PDF/A-1a Archival (ISO 19005-1 Compliance)", ID_RADIO_PDFA, 325, 212, 270, 22, fonts.normal, false, false,
+        hwnd_main, "PDF/A-1a (archival)", ID_RADIO_PDFA, 325, 212, 270, 22, fonts.normal, false, false,
     );
 
     // Card 3: Output Destination (Card bounds: y=254..338)
     create_label(hwnd_main, "Output Destination", 38, 262, 200, 18, fonts.bold);
     let hwnd_radio_dest_src = create_radio(
-        hwnd_main, "Same folder as source document", ID_RADIO_DEST_SRC, 44, 282, 250, 20, fonts.normal, true, true,
+        hwnd_main, "Same folder as source file", ID_RADIO_DEST_SRC, 44, 282, 250, 20, fonts.normal, true, true,
     );
     let hwnd_radio_dest_cust = create_radio(
         hwnd_main, "Custom folder:", ID_RADIO_DEST_CUST, 44, 304, 115, 24, fonts.normal, false, false,
@@ -111,7 +107,7 @@ pub fn build_dialog_controls(hwnd_main: HWND, initial_files: &[PathBuf]) -> UiSt
     }
 
     // Card 4: Renaming & Bulk Renaming (Card bounds: y=348..464)
-    create_label(hwnd_main, "Filename Formatting & Renaming", 38, 356, 280, 18, fonts.bold);
+    create_label(hwnd_main, "Output Filename", 38, 356, 280, 18, fonts.bold);
     create_label(hwnd_main, "Pattern:", 44, 378, 55, 18, fonts.normal);
     let hwnd_edit_pattern = create_edit(hwnd_main, "{name}", ID_EDIT_PATTERN, 100, 376, 115, 24, fonts.normal, false);
     create_label(hwnd_main, "Prefix:", 230, 378, 45, 18, fonts.normal);
@@ -120,12 +116,12 @@ pub fn build_dialog_controls(hwnd_main: HWND, initial_files: &[PathBuf]) -> UiSt
     let hwnd_edit_suffix = create_edit(hwnd_main, "", ID_EDIT_SUFFIX, 440, 376, 165, 24, fonts.normal, false);
 
     let hwnd_chk_safe = create_checkbox(
-        hwnd_main, "Append sequential number (1), (2) if file already exists", ID_CHK_SAFE_COLLISION, 44, 406, 420, 20, fonts.normal, true,
+        hwnd_main, "Add number if file exists (e.g. file (1).pdf)", ID_CHK_SAFE_COLLISION, 44, 406, 420, 20, fonts.normal, true,
     );
-    let hwnd_lbl_preview = create_label(hwnd_main, "Output Preview: document.pdf", 44, 432, 550, 18, fonts.small);
+    let hwnd_lbl_preview = create_label(hwnd_main, "Preview: document.pdf", 44, 432, 550, 18, fonts.small);
 
     // Progress Area (hidden initially, shown during conversion)
-    let hwnd_lbl_status_main = create_label(hwnd_main, "Ready to convert.", 28, 476, 580, 20, fonts.bold);
+    let hwnd_lbl_status_main = create_label(hwnd_main, "Ready to convert", 28, 476, 580, 20, fonts.bold);
     let hwnd_progress_overall = create_progress_bar(hwnd_main, 201, 28, 500, 580, 14);
     let hwnd_lbl_status_sub = create_label(hwnd_main, "", 28, 520, 580, 18, fonts.small);
     let hwnd_progress_current = create_progress_bar(hwnd_main, 202, 28, 542, 580, 12);
@@ -138,9 +134,9 @@ pub fn build_dialog_controls(hwnd_main: HWND, initial_files: &[PathBuf]) -> UiSt
     }
 
     // Action Buttons (generously placed at y = 572 with 22px bottom margin)
-    let hwnd_btn_start = create_fluent_button(hwnd_main, "Start Conversion", ID_BTN_START, 350, 572, 150, 36, fonts.bold);
+    let hwnd_btn_start = create_fluent_button(hwnd_main, "Convert", ID_BTN_START, 350, 572, 150, 36, fonts.bold);
     let hwnd_btn_cancel = create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 510, 572, 95, 36, fonts.normal);
-    let hwnd_btn_open_dir = create_fluent_button(hwnd_main, "Open Output Folder", ID_BTN_OPEN_DIR, 28, 572, 175, 36, fonts.normal);
+    let hwnd_btn_open_dir = create_fluent_button(hwnd_main, "Open Folder", ID_BTN_OPEN_DIR, 28, 572, 175, 36, fonts.normal);
     unsafe {
         ShowWindow(hwnd_btn_open_dir, SW_HIDE);
     }

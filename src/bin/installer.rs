@@ -138,7 +138,7 @@ unsafe extern "system" fn installer_wndproc(
             if let Ok(guard) = INSTALLER_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
                     match dis.CtlID as usize {
-                        ID_BTN_INSTALL => draw_fluent_button(dis, &state.theme, if state.installed { "Finish" } else { "Install Now" }, true),
+                        ID_BTN_INSTALL => draw_fluent_button(dis, &state.theme, if state.installed { "Close" } else { "Install" }, true),
                         ID_BTN_CANCEL => draw_fluent_button(dis, &state.theme, "Cancel", false),
                         ID_BTN_BROWSE => draw_fluent_button(dis, &state.theme, "Browse...", false),
                         _ => {}
@@ -154,7 +154,7 @@ unsafe extern "system" fn installer_wndproc(
                     if let Some(state) = guard.as_mut() {
                         state.installed = true;
                         let dir = get_edit_text(state.hwnd_edit_dir);
-                        let success_text = format!("✓ Installed to {}! Explorer context menu is ready.", dir);
+                        let success_text = format!("Installed to {}.", dir);
                         SetWindowTextW(state.hwnd_lbl_status, com::to_wide(&success_text).as_ptr());
                         EnableWindow(state.hwnd_btn_install, 1);
                         InvalidateRect(state.hwnd_btn_install, ptr::null(), 1);
@@ -169,7 +169,7 @@ unsafe extern "system" fn installer_wndproc(
                     hwnd,
                     "DocuMorph Setup",
                     &format!(
-                        "Installation Successful!\n\nDocuMorph has been installed to:\n{}\n\nRight-click any Word, PowerPoint, or Excel document in File Explorer to convert to PDF with 100% font fidelity.",
+                        "Installed to:\n{}\n\nRight-click any Word, PowerPoint, or Excel file in File Explorer to convert to PDF.",
                         target_str
                     ),
                     false,
@@ -232,7 +232,7 @@ unsafe extern "system" fn installer_wndproc(
                     if let Ok(guard) = INSTALLER_STATE.lock() {
                         if let Some(state) = guard.as_ref() {
                             EnableWindow(state.hwnd_btn_install, 0);
-                            SetWindowTextW(state.hwnd_lbl_status, com::to_wide("Installing DocuMorph, please wait...").as_ptr());
+                            SetWindowTextW(state.hwnd_lbl_status, com::to_wide("Installing DocuMorph...").as_ptr());
                         }
                     }
 
@@ -325,7 +325,7 @@ fn main() {
         let px = (sx - win_w) / 2;
         let py = (sy - win_h) / 2;
 
-        let title = com::to_wide("DocuMorph Setup (v1.2.0)");
+        let title = com::to_wide("DocuMorph Setup (v1.2.1)");
         let hwnd_main = CreateWindowExW(
             WS_EX_APPWINDOW | WS_EX_COMPOSITED, class_name.as_ptr(), title.as_ptr(),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, px, py, win_w, win_h,
@@ -342,19 +342,19 @@ fn main() {
         let theme = FluentTheme::new();
 
         ui::controls::create_label(hwnd_main, "DocuMorph Setup", 28, 18, 280, 26, fonts.title);
-        ui::controls::create_label(hwnd_main, "v1.2.0 • High-Fidelity Document to PDF Converter with TrueType Font Embedding", 28, 48, 550, 20, fonts.small);
+        ui::controls::create_label(hwnd_main, "Version 1.2.1", 28, 48, 550, 20, fonts.small);
 
         ui::controls::create_label(hwnd_main, "Installation Folder", 40, 92, 200, 18, fonts.bold);
         let default_dir_str = default_dest.to_string_lossy().to_string();
         let hwnd_edit_dir = ui::controls::create_edit(hwnd_main, &default_dir_str, ID_EDIT_DIR, 40, 116, 415, 26, fonts.normal, false);
         let _ = ui::controls::create_fluent_button(hwnd_main, "Browse...", ID_BTN_BROWSE, 465, 115, 95, 28, fonts.normal);
 
-        ui::controls::create_label(hwnd_main, "Features & Integration", 40, 192, 250, 18, fonts.bold);
-        let desc = "• Adds 'Convert to PDF with DocuMorph' right-click menu in File Explorer\n\n• Supports Word (.docx, .doc), PowerPoint (.pptx, .ppt), Excel (.xlsx, .xls)\n\n• 100% TrueType document font embedding (zero fallback font substitution)\n\n• Automatically registered in Windows Settings Installed Apps with clean uninstaller";
+        ui::controls::create_label(hwnd_main, "Features", 40, 192, 250, 18, fonts.bold);
+        let desc = "• Adds 'Convert to PDF with DocuMorph' to File Explorer right-click menu\n\n• Converts Word (.docx, .doc), PowerPoint (.pptx, .ppt), and Excel (.xlsx, .xls)\n\n• Embeds TrueType fonts directly in exported PDFs\n\n• Includes uninstaller in Windows Settings > Installed Apps";
         ui::controls::create_label(hwnd_main, desc, 40, 218, 520, 115, fonts.normal);
 
         let hwnd_lbl_status = ui::controls::create_label(hwnd_main, "Ready to install.", 28, 402, 310, 22, fonts.normal);
-        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install Now", ID_BTN_INSTALL, 350, 394, 125, 36, fonts.bold);
+        let hwnd_btn_install = ui::controls::create_fluent_button(hwnd_main, "Install", ID_BTN_INSTALL, 350, 394, 125, 36, fonts.bold);
         let hwnd_btn_cancel = ui::controls::create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 485, 394, 95, 36, fonts.normal);
 
         if let Ok(mut guard) = INSTALLER_STATE.lock() {

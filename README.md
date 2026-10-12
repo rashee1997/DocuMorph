@@ -4,15 +4,12 @@
 
   # DocuMorph
 
-  **Lightning-fast, high-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding, WinUI 3 Fluent modern UI, bulk queueing, and an automated standalone installer.**
+  Windows context-menu utility for converting Word, PowerPoint, and Excel files to PDF with embedded fonts.
 
   <br />
 
-  [![DocuMorph: v1.2.0](https://img.shields.io/badge/DocuMorph-v1.2.0-C42B1C?style=for-the-badge&logo=windows&logoColor=white)](CHANGELOG.md)
-  [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](https://microsoft.com/windows)
-  [![Rust: 1.80+](https://img.shields.io/badge/Rust-1.80%2B-DEA584?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-3DA639?style=for-the-badge)](LICENSE)
-  [![CI/CD: GitHub Actions](https://img.shields.io/badge/CI%2FCD-Passing-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/rashee1997/DocuMorph/actions)
+  [![Release](https://img.shields.io/github/v/release/rashee1997/DocuMorph?style=flat-square)](https://github.com/rashee1997/DocuMorph/releases)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
 </div>
 
@@ -20,67 +17,51 @@
 
 ## Overview
 
-**DocuMorph** by **Rasheedh Ahamad** is a native Windows desktop utility written in Rust. It enables 1-click document-to-PDF conversion directly from the Windows File Explorer context menu for Microsoft Word (`.docx`, `.doc`), PowerPoint (`.pptx`, `.ppt`), and Excel (`.xlsx`, `.xls`) documents.
+**DocuMorph** by **Rasheedh Ahamad** is a native Windows utility written in Rust. It adds a "Convert to PDF with DocuMorph" action to the File Explorer right-click menu for Microsoft Word (`.docx`, `.doc`), PowerPoint (`.pptx`, `.ppt`), and Excel (`.xlsx`, `.xls`) files.
 
-Unlike virtual PDF printer drivers or third-party format converters that degrade vector shapes and substitute missing fonts, DocuMorph uses deep native Office COM automation to preserve 100% TrueType document fonts, layout pagination, and table boundaries without font rasterization.
+Conversions run directly through Microsoft Office automation, preserving TrueType document fonts, page layouts, and table formatting without virtual print driver rasterization.
 
 ---
 
-## Key Features
+## Features
 
-- 🖱️ **Windows Explorer Context Menu**: Right-click any `.docx`, `.doc`, `.pptx`, `.ppt`, `.xlsx`, or `.xls` file and choose **"Convert to PDF with DocuMorph"**.
-- 🎨 **WinUI 3 & Windows 11 Fluent Design System**:
-  - Native Windows 11 DWM rounded window corners (`DWMWCP_ROUND`).
-  - Hardware-accelerated double buffering (`WS_EX_COMPOSITED`) with zero Win32 redraw flicker.
-  - Soft rounded cards with crisp 1px borders on a light slate canvas.
-  - Custom owner-drawn Crimson pill action buttons (`BS_OWNERDRAW`) with active hover and press feedback.
-  - Seamless transparent label blending without grey bounding boxes.
-- 📐 **Zero-Cutoff Dynamic Sizing**: Computes window geometry dynamically via `AdjustWindowRectEx`, guaranteeing generous bottom margins and zero button truncation across all display scaling levels (100%, 125%, 150%).
-- 🔤 **100% TrueType Vector Font Embedding**: Preserves scalable vector glyphs without rasterizing missing fonts into low-resolution bitmaps (`BitmapMissingFonts = false`).
-- 🏛️ **ISO 19005-1 PDF/A-1a Archival Compliance**: Toggle between Standard PDF and enterprise-grade PDF/A-1a archival mode.
-- 📑 **Excel Sheet Boundary Control**: Automatically configures `PageSetup` (`Zoom = false`, `FitToPagesWide = 1`, `FitToPagesTall = false`) to prevent wide tables from being split across multiple columns.
-- 🖼️ **PowerPoint Fixed Format Export**: Uses native `ExportAsFixedFormat` with print intent and suppressed alert popups for rapid, non-blocking slide export.
-- ⚙️ **Interactive Options & Queue Dialog**:
-  - Add, remove, or clear queued documents.
-  - Route output to the source directory or any custom folder.
-  - Bulk renaming templates with `{name}`, `{date}`, and `{num}` tokens and live real-time preview.
-  - Safe collision prevention: auto-numbers duplicate files (`Document (1).pdf`).
-- 🔄 **Single-Instance Named Pipe IPC Queue**: Selecting multiple files simultaneously in Windows Explorer automatically aggregates all documents into a unified conversion batch queue via Named Pipes.
-- 📦 **Automated Setup Wizard (`DocuMorph-Setup.exe`)**: All-in-one standalone installer (~1 MB) bundling all binaries and icon, with custom install path selection and full registration in Windows Settings **Installed Apps**.
-- 🗑️ **Clean Standalone Uninstaller (`uninstall.exe`)**: Removes context menus, registry entries, and cleans installation files.
-- ⚡ **Lightweight & Fast**: Pure native Rust binary with 0 external runtime DLL dependencies (~395 KB engine, ~1 MB setup wizard).
+- **File Explorer integration**: Right-click `.docx`, `.doc`, `.pptx`, `.ppt`, `.xlsx`, or `.xls` files to convert.
+- **Batch queueing**: Select multiple files in File Explorer to process them together in one window.
+- **Font embedding**: Embeds TrueType fonts directly in output PDFs.
+- **PDF/A support**: Option to generate PDF/A-1a archival files (`ISO 19005-1`).
+- **Excel layout protection**: Fits worksheets to page width to prevent split tables.
+- **Output control**: Save to the source folder or a custom destination, with optional renaming patterns (`{name}`, `{date}`, `{num}`).
+- **Self-contained installer**: Standalone installer (`DocuMorph-Setup.exe`) configures the context menu and uninstaller.
+- **Zero runtime dependencies**: Pure native Win32/Rust binary with no extra runtime requirements.
 
 ---
 
 ## Installation
 
-### Method 1: Download from GitHub Releases (Recommended)
-Download the latest `DocuMorph-Setup.exe` from the [GitHub Releases Tab](https://github.com/rashee1997/DocuMorph/releases) and double-click to install.
+### Installer
+Download `DocuMorph-Setup.exe` from [Releases](https://github.com/rashee1997/DocuMorph/releases) and run it. The installer requests Administrator privileges to place files in `C:\Program Files\DocuMorph` and register the context menu.
 
-### Method 2: Silent / Automated CLI Install
-Deploy silently to `C:\Program Files\DocuMorph` (or any custom location) using PowerShell:
+### Silent install
+Run the installer from an elevated prompt:
 ```powershell
 .\DocuMorph-Setup.exe --silent "C:\Program Files\DocuMorph"
 ```
 
 ---
 
-## How to Use
+## Usage
 
-### 1. File Explorer Context Menu
-1. In Windows File Explorer, select one or more Word, PowerPoint, or Excel files.
-2. Right-click and choose **"Convert to PDF with DocuMorph"**.
-3. In the options dialog, configure your target settings:
-   - **PDF Standard**: Standard PDF or PDF/A-1a Archival (`ISO 19005-1`).
-   - **Output Destination**: Source folder or custom folder.
-   - **Renaming Pattern**: `{name}`, `Prefix_{name}_{date}`, etc.
-4. Click **Start Conversion**.
-5. Once complete, click **Open Output Folder** to view your converted PDFs.
+### 1. File Explorer
+1. Select one or more Word, PowerPoint, or Excel files in File Explorer.
+2. Right-click and select **"Convert to PDF with DocuMorph"**.
+3. Choose your output format (Standard PDF or PDF/A-1a) and destination folder.
+4. Click **Convert**.
+5. When finished, click **Open folder** to view the generated PDFs.
 
-### 2. Command Line Interface
+### 2. Command Line
 
 ```
-DocuMorph v1.2.0
+DocuMorph v1.2.1
 USAGE:
     documorph.exe [OPTIONS] [FILE_PATHS...]
 
@@ -102,9 +83,9 @@ EXAMPLES:
 
 ---
 
-## Build from Source
+## Building from Source
 
-DocuMorph compiles with either the MSVC or lightweight GNU Windows toolchain:
+Prerequisites: Rust 1.80+ on Windows.
 
 ```powershell
 # Clone the repository
@@ -114,31 +95,23 @@ cd DocuMorph
 # Run tests
 cargo test --lib
 
-# Build all release binaries
+# Build binaries
 cargo build --release --bin documorph --bin uninstaller
 cargo build --release --bin installer
 
-# The standalone installer bundles the engine and uninstaller
+# Copy installer to root
 Copy-Item "target/release/installer.exe" "DocuMorph-Setup.exe"
 ```
 
-Binaries generated in `target/release/`:
-- `documorph.exe`: High-fidelity conversion engine (~395 KB)
-- `installer.exe`: Standalone setup wizard (~1 MB)
-- `uninstaller.exe`: Autonomous uninstaller (~324 KB)
+Outputs in `target/release/`:
+- `documorph.exe`: Conversion engine
+- `installer.exe`: Standalone installer
+- `uninstaller.exe`: Uninstaller
 
 ---
 
-## Automated GitHub Actions CI/CD
-
-DocuMorph includes a fully automated GitHub Actions workflow (`.github/workflows/release.yml`):
-- **On Push to Master / Main**: Automatically compiles release binaries, tests the codebase, and packages versioned artifacts available in the GitHub Actions **Artifacts** tab.
-- **On Release Tag (`v*`)**: Automatically builds, computes SHA256 checksums, and uploads `DocuMorph-Setup.exe`, `DocuMorph-Setup-vX.Y.Z.exe`, and portable release `.zip` archives directly to the **GitHub Releases** tab.
-
----
-
-## License & Authorship
+## License & Author
 
 Released under the [MIT License](LICENSE).
 
-Copyright (c) 2026 **Rasheedh Ahamad** (`rasheedhmech03@gmail.com`).
+Author: **Rasheedh Ahamad** (`rasheedhmech03@gmail.com`).

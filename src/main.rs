@@ -64,8 +64,8 @@ fn show_alert(title: &str, message: &str, is_error: bool) {
 
 fn print_help() {
     console_print(
-        r#"DocuMorph v1.2.0
-High-fidelity Windows context-menu document-to-PDF engine with TrueType font embedding
+        r#"DocuMorph v1.2.1
+Converts Word, PowerPoint, and Excel files to PDF from Windows File Explorer
 
 USAGE:
     documorph.exe [OPTIONS] [FILE_PATHS...]
@@ -88,7 +88,7 @@ EXAMPLES:
 }
 
 fn print_version() {
-    console_print("DocuMorph v1.2.0");
+    console_print("DocuMorph v1.2.1");
 }
 
 fn main() {

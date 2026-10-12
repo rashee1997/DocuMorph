@@ -14,7 +14,7 @@ impl WordConverter {
     where
         F: FnMut(u32, &str),
     {
-        progress(15, "Starting Microsoft Word background engine...");
+        progress(15, "Opening Word...");
 
         let app = ComDispatch::create_instance("Word.Application")
             .map_err(|e| format!("Could not initialize Word: {}", e))?;
@@ -30,7 +30,7 @@ impl WordConverter {
         let printer_bstr = ManagedBstr::from_str("Microsoft Print to PDF");
         let _ = app.set_property("ActivePrinter", ManagedVariant::from_bstr(printer_bstr.0));
 
-        progress(30, "Accessing document collection...");
+        progress(30, "Opening document...");
 
         let docs = match app.get_dispatch_property("Documents") {
             Ok(d) => d,
@@ -50,7 +50,7 @@ impl WordConverter {
         let input_bstr = ManagedBstr::from_str(input_str);
         let output_bstr = ManagedBstr::from_str(output_str);
 
-        progress(45, "Opening document and embedding TrueType fonts...");
+        progress(45, "Loading fonts...");
 
         // Documents.Open(FileName, ConfirmConversions=false, ReadOnly=true, AddToRecentFiles=false)
         let mut open_args = [
@@ -88,7 +88,7 @@ impl WordConverter {
             }
         }
 
-        progress(70, "Exporting fixed layout PDF copy...");
+        progress(70, "Exporting PDF...");
 
         // Document.ExportAsFixedFormat(
         //   OutputFileName, ExportFormat=17, OpenAfterExport=false,

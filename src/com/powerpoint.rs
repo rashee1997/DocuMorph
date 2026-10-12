@@ -14,7 +14,7 @@ impl PowerPointConverter {
     where
         F: FnMut(u32, &str),
     {
-        progress(15, "Starting Microsoft PowerPoint background engine...");
+        progress(15, "Opening PowerPoint...");
 
         let app = ComDispatch::create_instance("PowerPoint.Application")
             .map_err(|e| format!("Could not initialize PowerPoint: {}", e))?;
@@ -23,7 +23,7 @@ impl PowerPointConverter {
         let _ = app.set_property("AutomationSecurity", ManagedVariant::from_i4(3));
         let _ = app.set_property("DisplayAlerts", ManagedVariant::from_i4(1)); // ppAlertsNone = 1
 
-        progress(30, "Accessing presentations collection...");
+        progress(30, "Opening presentations...");
 
         let presentations = match app.get_dispatch_property("Presentations") {
             Ok(p) => p,
@@ -43,7 +43,7 @@ impl PowerPointConverter {
         let input_bstr = ManagedBstr::from_str(input_str);
         let output_bstr = ManagedBstr::from_str(output_str);
 
-        progress(45, "Opening presentation slides...");
+        progress(45, "Opening presentation...");
 
         // Presentations.Open(FileName, ReadOnly = -1, Untitled = 0, WithWindow = 0)
         let mut open_args = [
@@ -69,7 +69,7 @@ impl PowerPointConverter {
             }
         };
 
-        progress(70, "Exporting slide deck to fixed layout PDF...");
+        progress(70, "Exporting PDF...");
 
         let use_iso = pdf_standard == PdfStandard::PdfA1a;
         let empty_bstr = ManagedBstr::from_str("");
@@ -100,7 +100,7 @@ impl PowerPointConverter {
 
         let export_result = presentation.invoke_method("ExportAsFixedFormat", &mut export_args);
 
-        progress(90, "Finalizing presentation export...");
+        progress(90, "Closing presentation...");
 
         let _ = presentation.invoke_method("Close", &mut []);
         let _ = app.invoke_method("Quit", &mut []);

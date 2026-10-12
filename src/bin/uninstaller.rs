@@ -64,7 +64,7 @@ fn main() {
     if !silent {
         let confirmed = show_dialog(
             "DocuMorph Uninstall",
-            "Are you sure you want to completely uninstall DocuMorph and remove all Windows Explorer context menu shortcuts?",
+            "Uninstall DocuMorph and remove its File Explorer context menu entries?",
             true,
         );
         if !confirmed {
@@ -101,7 +101,7 @@ fn main() {
     if !silent {
         show_dialog(
             "DocuMorph Uninstall",
-            "DocuMorph has been successfully uninstalled from your computer.",
+            "DocuMorph has been uninstalled.",
             false,
         );
     }
