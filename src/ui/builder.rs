@@ -121,10 +121,11 @@ pub fn build_dialog_controls(hwnd_main: HWND, initial_files: &[PathBuf]) -> UiSt
     let hwnd_lbl_preview = create_label(hwnd_main, "Preview: document.pdf", 44, 432, 550, 18, fonts.small);
 
     // Progress Area (hidden initially, shown during conversion)
+    // Layout: status at top, progress bars below, then buttons at bottom
     let hwnd_lbl_status_main = create_label(hwnd_main, "Ready to convert", 28, 476, 580, 20, fonts.bold);
-    let hwnd_progress_overall = create_progress_bar(hwnd_main, 201, 28, 500, 580, 14);
-    let hwnd_lbl_status_sub = create_label(hwnd_main, "", 28, 520, 580, 18, fonts.small);
-    let hwnd_progress_current = create_progress_bar(hwnd_main, 202, 28, 542, 580, 12);
+    let hwnd_progress_overall = create_progress_bar(hwnd_main, 201, 28, 498, 580, 14);
+    let hwnd_lbl_status_sub = create_label(hwnd_main, "", 28, 522, 580, 18, fonts.small);
+    let hwnd_progress_current = create_progress_bar(hwnd_main, 202, 28, 544, 580, 12);
 
     unsafe {
         ShowWindow(hwnd_progress_overall, SW_HIDE);
@@ -133,10 +134,11 @@ pub fn build_dialog_controls(hwnd_main: HWND, initial_files: &[PathBuf]) -> UiSt
         ShowWindow(hwnd_lbl_status_sub, SW_HIDE);
     }
 
-    // Action Buttons (generously placed at y = 572 with 22px bottom margin)
-    let hwnd_btn_start = create_fluent_button(hwnd_main, "Convert", ID_BTN_START, 350, 572, 150, 36, fonts.bold);
-    let hwnd_btn_cancel = create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 510, 572, 95, 36, fonts.normal);
-    let hwnd_btn_open_dir = create_fluent_button(hwnd_main, "Open Folder", ID_BTN_OPEN_DIR, 28, 572, 175, 36, fonts.normal);
+    // Action Buttons at the very bottom with proper margin
+    // Window client height ~630, buttons at y=588 with 36px = 624 bottom, 6px margin
+    let hwnd_btn_start = create_fluent_button(hwnd_main, "Convert", ID_BTN_START, 350, 588, 150, 36, fonts.bold);
+    let hwnd_btn_cancel = create_fluent_button(hwnd_main, "Cancel", ID_BTN_CANCEL, 510, 588, 95, 36, fonts.normal);
+    let hwnd_btn_open_dir = create_fluent_button(hwnd_main, "Open Folder", ID_BTN_OPEN_DIR, 28, 588, 175, 36, fonts.normal);
     unsafe {
         ShowWindow(hwnd_btn_open_dir, SW_HIDE);
     }
