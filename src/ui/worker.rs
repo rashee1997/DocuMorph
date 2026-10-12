@@ -65,14 +65,20 @@ pub fn start_conversion_flow(hwnd: HWND) {
                 OutputDestination::SourceDirectory => files.first().and_then(|f| f.parent()).map(|p| p.to_path_buf()),
             };
 
-            // Disable start button, show progress controls, keep cancel enabled
+            // Show progress controls, hide start button, keep cancel enabled for emergency stop
             unsafe {
                 EnableWindow(state.hwnd_btn_start, 0);
                 ShowWindow(state.hwnd_btn_start, SW_HIDE);
+                
+                // Ensure cancel button is enabled - user must be able to stop at any time
+                EnableWindow(state.hwnd_btn_cancel, 1);
+                
                 ShowWindow(state.hwnd_progress_overall, SW_SHOW);
                 ShowWindow(state.hwnd_progress_current, SW_SHOW);
                 ShowWindow(state.hwnd_lbl_status_main, SW_SHOW);
                 ShowWindow(state.hwnd_lbl_status_sub, SW_SHOW);
+                
+                // Force immediate redraw of the window to show progress UI
                 windows_sys::Win32::Graphics::Gdi::InvalidateRect(state.hwnd_main, std::ptr::null(), 1);
                 windows_sys::Win32::Graphics::Gdi::UpdateWindow(state.hwnd_main);
             }
@@ -138,10 +144,10 @@ pub fn start_conversion_flow(hwnd: HWND) {
                     Err(RecvTimeoutError::Timeout) => {
                         // Check if the thread has finished but didn't send a message
                         if *thread_done.lock().unwrap() {
-                            // Thread finished but didn't send Finished message (bug or panic)
+                            // Thread finished but didn't send Finished message
                             let _ = tx_clone.send(app::ProgressMessage::Finished {
                                 success: false,
-                                message: "Conversion completed without sending result".to_string(),
+                                message: "Conversion failed: no result received".to_string(),
                                 output_path: None,
                             });
                             break;
@@ -152,18 +158,18 @@ pub fn start_conversion_flow(hwnd: HWND) {
                             // Exceeded maximum wait time - force cancel
                             let _ = tx_clone.send(app::ProgressMessage::Finished {
                                 success: false,
-                                message: "Conversion timed out after 5 minutes".to_string(),
+                                message: "Conversion timed out: operation took too long".to_string(),
                                 output_path: None,
                             });
                             break;
                         }
-                        // Continue waiting - COM operations can be slow
+                        // Continue waiting - COM operations can take time
                     }
                     Err(RecvTimeoutError::Disconnected) => {
-                        // Sender dropped without sending Finished - thread likely panicked
+                        // Sender dropped without sending Finished - conversion thread ended unexpectedly
                         let _ = tx_clone.send(app::ProgressMessage::Finished {
                             success: false,
-                            message: "Conversion channel disconnected unexpectedly".to_string(),
+                            message: "Conversion failed: process ended unexpectedly".to_string(),
                             output_path: None,
                         });
                         break;

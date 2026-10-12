@@ -31,7 +31,7 @@ impl ProgressAnimator {
 
 pub static ANIMATOR: Mutex<ProgressAnimator> = Mutex::new(ProgressAnimator::new());
 
-/// Starts the 35ms animation timer on the window
+/// Starts the animation timer on the window (~60fps for smooth updates)
 pub fn start_anim(hwnd: HWND) {
     if let Ok(mut anim) = ANIMATOR.lock() {
         anim.target_current = 10;
@@ -42,7 +42,9 @@ pub fn start_anim(hwnd: HWND) {
         anim.ticks = 0;
     }
     unsafe {
-        SetTimer(hwnd, ID_TIMER_PROGRESS, 35, None);
+        // 16ms ≈ 60fps - Windows checks for hung apps after ~5 seconds of no messages
+        // Timer keeps message queue active without excessive CPU usage
+        SetTimer(hwnd, ID_TIMER_PROGRESS, 16, None);
     }
 }
 
@@ -60,7 +62,9 @@ pub fn set_overall_target(pct: usize) {
     }
 }
 
-/// Called on every WM_TIMER tick: smoothly animates the progress bars
+// Called on every WM_TIMER tick: smoothly animates the progress bars
+// Key principle: Only animate when there's actual work happening.
+// Don't fake progress - users notice and distrust moving bars without real work.
 pub fn on_timer_tick(hwnd_current: HWND, hwnd_overall: HWND) {
     let mut updated_current = None;
     let mut updated_overall = None;
@@ -73,18 +77,12 @@ pub fn on_timer_tick(hwnd_current: HWND, hwnd_overall: HWND) {
         anim.ticks += 1;
 
         // 1. Smoothly step current file progress towards target
+        // Adaptive stepping: bigger steps when far behind, smaller when close
         if anim.displayed_current < anim.target_current {
             let diff = anim.target_current - anim.displayed_current;
-            let step = if diff > 20 { 3 } else if diff > 5 { 2 } else { 1 };
+            let step = if diff > 50 { 8 } else if diff > 20 { 5 } else if diff > 5 { 3 } else { 1 };
             anim.displayed_current += step;
             updated_current = Some(anim.displayed_current);
-        } else if anim.target_current >= 70 && anim.target_current < 90 && anim.displayed_current < 88 {
-            // While COM is exporting the fixed PDF (70% - 90%), subtly creep forward every 12 ticks (~400ms)
-            // so the progress bar never appears frozen or dead!
-            if anim.ticks % 12 == 0 {
-                anim.displayed_current += 1;
-                updated_current = Some(anim.displayed_current);
-            }
         }
 
         // 2. Smoothly step overall progress towards target

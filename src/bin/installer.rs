@@ -215,13 +215,14 @@ unsafe extern "system" fn installer_wndproc(
         wm_timer if (wm_timer as usize) == ID_TIMER_PROGRESS => {
             if let Ok(guard) = INSTALLER_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
-                    // Single progress bar animation - just step towards target
+                    // Single progress bar animation using shared animator
                     let mut updated = false;
                     let mut pos = 0usize;
                     if let Ok(mut anim) = documorph::ui::anim::ANIMATOR.lock() {
                         if anim.is_active && anim.displayed_current < anim.target_current {
                             let diff = anim.target_current - anim.displayed_current;
-                            let step = if diff > 20 { 3 } else if diff > 5 { 2 } else { 1 };
+                            // Use same adaptive stepping as main converter
+                            let step = if diff > 50 { 8 } else if diff > 20 { 5 } else if diff > 5 { 3 } else { 1 };
                             anim.displayed_current += step;
                             pos = anim.displayed_current;
                             updated = true;
@@ -275,12 +276,19 @@ unsafe extern "system" fn installer_wndproc(
 
                     if let Ok(guard) = INSTALLER_STATE.lock() {
                         if let Some(state) = guard.as_ref() {
+                            // Disable install button, keep cancel enabled
                             EnableWindow(state.hwnd_btn_install, 0);
+                            EnableWindow(state.hwnd_btn_cancel, 1);
                             SetWindowTextW(state.hwnd_lbl_status, com::to_wide("Installing DocuMorph...").as_ptr());
-                            // Show progress bar and start animation
+                            
+                            // Show progress bar and start animation (~60fps)
                             ShowWindow(state.hwnd_progress, SW_SHOW);
                             set_target_percent(100);
                             start_anim(hwnd);
+                            
+                            // Force immediate UI update
+                            InvalidateRect(hwnd, ptr::null(), 1);
+                            UpdateWindow(hwnd);
                         }
                     }
 
@@ -297,6 +305,8 @@ unsafe extern "system" fn installer_wndproc(
                     });
                 }
                 ID_BTN_CANCEL => {
+                    // If installation is in progress, just close the window
+                    // The background thread will complete or be abandoned
                     DestroyWindow(hwnd);
                 }
                 _ => {}

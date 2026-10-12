@@ -234,13 +234,22 @@ unsafe extern "system" fn window_proc(
             let total = lparam as usize;
             if let Ok(guard) = UI_STATE.lock() {
                 if let Some(state) = guard.as_ref() {
+                    // Stop animation and reset progress bars to 100%
                     crate::ui::anim::stop_anim(hwnd, state.hwnd_progress_current, state.hwnd_progress_overall);
+                    
+                    // Restore UI state
                     let result_str = format!("Converted {} of {} files.", success_count, total);
                     SetWindowTextW(state.hwnd_lbl_status_main, to_wide(&result_str).as_ptr());
                     SetWindowTextW(state.hwnd_lbl_status_sub, to_wide("").as_ptr());
+                    
+                    // Show open folder button, restore cancel button
                     ShowWindow(state.hwnd_btn_open_dir, SW_SHOW);
                     SetWindowTextW(state.hwnd_btn_cancel, to_wide("Close").as_ptr());
                     EnableWindow(state.hwnd_btn_cancel, 1);
+                    
+                    // Force UI update
+                    InvalidateRect(hwnd, ptr::null(), 1);
+                    UpdateWindow(hwnd);
                 }
             }
             0
