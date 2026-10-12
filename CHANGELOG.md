@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.2] - 2026-10-12
 
 ### Fixed
+- **Conversion Thread Safety**: Fixed UI hang after starting conversion by adding timeout-based message receiving, thread completion tracking, and proper thread joining in the conversion worker. Prevents indefinite blocking if COM operations stall or threads panic.
 - **Installer UAC Elevation**: Automatically requests Administrator privileges on startup via `ShellExecuteW(runas)` so installation to `C:\Program Files\DocuMorph` succeeds without permission errors.
 - **Installer Non-Blocking Execution**: Moved file copying and registry updates to a background thread to prevent UI freezing.
 - **Conversion Responsiveness & Progress Animation**: Added a 35ms timer to maintain continuous Win32 message queue activity during document export, preventing Windows from marking the window as unresponsive.

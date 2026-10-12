@@ -4,7 +4,7 @@
 
 ---
 
-### What's New in v1.2.1
+### What's New in v1.2.2
 
 1. **UAC Elevation for Installer & Uninstaller**
    - Automatically prompts for Administrator privileges via Windows UAC when run, ensuring file installation to `C:\Program Files\DocuMorph` and registry entry creation succeed without permission errors.
